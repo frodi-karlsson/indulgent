@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": ["node_modules", "dist"],
+  "categories": {
+    "correctness": "error",
+    "style": "error",
+    "nursery": "error",
+    "pedantic": "error",
+    "perf": "error",
+    "restriction": "error",
+    "suspicious": "error"
+  },
+  "rules": {
+    "filename-case": "off",
+    "func-style": [
+      "error",
+      "declaration",
+      { "allowArrowFunctions": false, "allowFunctionExpressions": false }
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+import { describe, test, expect } from 'vitest';
+import { isObject } from './typeAssertions';
+
+describe('typeAssertions', () => {
+  describe('isObject', () => {
+    test('should return true for plain objects', () => {
+      expect(isObject({})).toBe(true);
+    });
+
+    test('should return false for null', () => {
+      expect(isObject(null)).toBe(false);
+    });
+
+    test('should return false for arrays', () => {
+      expect(isObject([])).toBe(false);
+    });
+
+    test('should return false for functions', () => {
+      expect(isObject(() => {})).toBe(false);
+    });
+  });
+});
