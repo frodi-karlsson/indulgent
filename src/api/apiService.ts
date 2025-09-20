@@ -31,6 +31,9 @@ export const defaultFetcher: GenericFetcher<RequestInit> = {
   },
 };
 
+/**
+ * Extracts the fetch options type from a GenericFetcher.
+ */
 type GetFetchOptionsFromFetcher<T extends GenericFetcher<Record<string, any>>> =
   T extends GenericFetcher<infer Options> ? Options : never;
 
@@ -335,7 +338,10 @@ export abstract class ApiService<
  */
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
 
-type BodyRestriction = UnknownObject | never | undefined;
+/**
+ * The type of the request body, either an object, undefined (no body), or never (no body allowed).
+ */
+type Body = UnknownObject | never | undefined;
 
 // an intersection of parameter objects based on `:${param}`s in the path, or {} if none
 type PathParamsRec<Path extends string> =
@@ -353,10 +359,13 @@ type PathParams<Path extends string> =
       : O
     : never;
 
+/**
+ * Internal base interface representing the structure of an API endpoint.
+ */
 interface BaseEndpoint<
   Method extends HttpMethod,
   ResponseData,
-  BodyData extends BodyRestriction,
+  BodyData extends Body,
   SearchParams extends UnknownObject,
   Path extends string,
 > {
@@ -384,7 +393,7 @@ interface BaseEndpoint<
  */
 export interface Endpoint<
   T extends Partial<
-    BaseEndpoint<HttpMethod, unknown, BodyRestriction, UnknownObject, string>
+    BaseEndpoint<HttpMethod, unknown, Body, UnknownObject, string>
   >,
 > {
   method: T['method'] & HttpMethod;
@@ -419,7 +428,10 @@ interface MethodToMethodFetchFunctionName extends Record<HttpMethod, string> {
   HEAD: 'head';
 }
 
-// Exists to make sure we don't leave any supported HTTP methods out of ApiService
+/**
+ * Internal interface representing the API methods available on ApiService.
+ * Exists to make sure we don't leave any supported HTTP methods out of ApiService
+ */
 type IApi<Endpoints extends BaseEndpoint<any, any, any, any, any>> = {
   fetch: <ResponseData, Path extends string>(
     url: Path,
