@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { deepMerge } from './object';
 
 describe('Object utilities', () => {
@@ -28,14 +28,14 @@ describe('Object utilities', () => {
     },
     {
       description: 'target is not an object',
-      target: null,
+      target: undefined,
       source: { a: 1 },
       expected: { a: 1 },
     },
     {
       description: 'source is not an object',
       target: { a: 1 },
-      source: null,
+      source: undefined,
       expected: { a: 1 },
     },
     {

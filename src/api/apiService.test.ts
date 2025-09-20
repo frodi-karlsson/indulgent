@@ -1,42 +1,30 @@
+import { ApiService, type Endpoint, type GenericFetcher } from './apiService';
 import { describe, expect, test, vi } from 'vitest';
-import type { Endpoint, FetchOptionType, GenericFetcher } from './apiService';
-import { ApiService } from './apiService';
-import { UnknownObject } from '../types/object';
+import type { UnknownObject } from '../types/object';
 
 describe('ApiService', () => {
   describe('get method with query parameters', () => {
-    type TestGetEndpoint = Endpoint.Get<
-      '/test-endpoint',
-      {
-        search?: string;
-        page?: number;
-      },
-      UnknownObject
-    >;
+    type TestGetEndpoint = Endpoint<{
+      method: 'GET';
+      path: '/test-endpoint';
+      query?: { search?: string; page?: number };
+      response: { results: unknown[] };
+    }>;
 
     const testCasesGetWithQuery: {
       params?: Record<string, string | number>;
       expectedUrl: string;
-      expectedOptions: {
-        body: string | undefined;
-      };
       description: string;
     }[] = [
       {
         description: 'no params, no data',
         params: undefined,
         expectedUrl: '/test-endpoint',
-        expectedOptions: {
-          body: undefined,
-        },
       },
       {
         description: 'with params, no data',
         params: { search: 'query', page: 2 },
         expectedUrl: '/test-endpoint?search=query&page=2',
-        expectedOptions: {
-          body: undefined,
-        },
       },
     ];
     const mockFetcher = createMockFetcher();
@@ -49,54 +37,49 @@ describe('ApiService', () => {
     test.each(testCasesGetWithQuery)(
       'should call fetcher.%s with correct parameters',
       async (testCase) => {
-        const { params, expectedUrl, expectedOptions } = testCase;
+        const { params, expectedUrl } = testCase;
 
         await apiService.get('/test-endpoint', {
           searchParams: params,
         });
 
-        expect(mockFetcher.get).toHaveBeenCalledWith(
+        expect(mockFetcher.fetch).toHaveBeenCalledWith(
           expectedUrl,
-          expectedOptions,
+          'GET',
+          undefined,
+          {},
         );
       },
     );
   });
 
   describe('post method with body', () => {
-    type TestPostEndpoint = Endpoint.Post<
-      '/test-endpoint',
-      { a: string; b: number } | undefined,
-      { c: boolean }
-    >;
+    type TestPostEndpoint = Endpoint<{
+      method: 'POST';
+      path: '/test-endpoint';
+      request: { a: string; b: number } | undefined;
+      response: { c: boolean };
+    }>;
 
     const testCasesPostWithBody: {
       body?: { a: string; b: number };
-      expectedOptions: {
-        body: string | undefined;
-      };
+      expectedBody?: string | undefined;
       description: string;
     }[] = [
       {
         description: 'no body',
         body: undefined,
-        expectedOptions: {
-          body: undefined,
-        },
+        expectedBody: undefined,
       },
       {
         description: 'with body as object',
         body: { a: 'value', b: 42 },
-        expectedOptions: {
-          body: JSON.stringify({ a: 'value', b: 42 }),
-        },
+        expectedBody: JSON.stringify({ a: 'value', b: 42 }),
       },
       {
         description: 'with body as string',
         body: '{"a":"value","b":42}' as unknown as { a: string; b: number },
-        expectedOptions: {
-          body: '{"a":"value","b":42}',
-        },
+        expectedBody: '{"a":"value","b":42}',
       },
     ];
     const mockFetcher = createMockFetcher();
@@ -109,54 +92,48 @@ describe('ApiService', () => {
     test.each(testCasesPostWithBody)(
       'should call fetcher $description with correct parameters',
       async (testCase) => {
-        const { body, expectedOptions } = testCase;
+        const { body, expectedBody } = testCase;
 
         await apiService.post('/test-endpoint', {
           body,
         });
 
-        expect(mockFetcher.post).toHaveBeenCalledWith(
+        expect(mockFetcher.fetch).toHaveBeenCalledWith(
           '/test-endpoint',
-          expectedOptions,
+          'POST',
+          expectedBody,
+          {},
         );
       },
     );
   });
 
   describe('put method with body', () => {
-    type TestPutEndpoint = Endpoint.Put<
-      '/test-endpoint',
-      { a: string; b: number } | undefined,
-      { c: boolean }
-    >;
+    type TestPutEndpoint = Endpoint<{
+      method: 'PUT';
+      path: '/test-endpoint';
+      request: { a: string; b: number } | undefined;
+      response: { c: boolean };
+    }>;
 
     const testCasesPutWithBody: {
       body?: { a: string; b: number };
-      expectedOptions: {
-        body: string | undefined;
-      };
+      expectedBody?: string | undefined;
       description: string;
     }[] = [
       {
         description: 'no body',
         body: undefined,
-        expectedOptions: {
-          body: undefined,
-        },
       },
       {
         description: 'with body as object',
         body: { a: 'value', b: 42 },
-        expectedOptions: {
-          body: JSON.stringify({ a: 'value', b: 42 }),
-        },
+        expectedBody: JSON.stringify({ a: 'value', b: 42 }),
       },
       {
         description: 'with body as string',
         body: '{"a":"value","b":42}' as unknown as { a: string; b: number },
-        expectedOptions: {
-          body: '{"a":"value","b":42}',
-        },
+        expectedBody: '{"a":"value","b":42}',
       },
     ];
     const mockFetcher = createMockFetcher();
@@ -169,54 +146,50 @@ describe('ApiService', () => {
     test.each(testCasesPutWithBody)(
       'should call fetcher $description with correct parameters',
       async (testCase) => {
-        const { body, expectedOptions } = testCase;
+        const { body, expectedBody } = testCase;
 
         await apiService.put('/test-endpoint', {
           body,
         });
 
-        expect(mockFetcher.put).toHaveBeenCalledWith(
+        expect(mockFetcher.fetch).toHaveBeenCalledWith(
           '/test-endpoint',
-          expectedOptions,
+          'PUT',
+          expectedBody,
+          {},
         );
       },
     );
   });
 
   describe('delete method with body', () => {
-    type TestDeleteEndpoint = Endpoint.Delete<
-      '/test-endpoint',
-      { a: string; b: number } | undefined,
-      { c: boolean }
-    >;
+    type TestDeleteEndpoint = Endpoint<{
+      method: 'DELETE';
+      path: '/test-endpoint';
+      request: { a: string; b: number } | undefined;
+      response: { c: boolean };
+      body?: { a: string; b: number };
+    }>;
 
     const testCasesDeleteWithBody: {
       body?: { a: string; b: number };
-      expectedOptions: {
-        body: string | undefined;
-      };
+      expectedBody?: string | undefined;
       description: string;
     }[] = [
       {
         description: 'no body',
         body: undefined,
-        expectedOptions: {
-          body: undefined,
-        },
+        expectedBody: undefined,
       },
       {
         description: 'with body as object',
         body: { a: 'value', b: 42 },
-        expectedOptions: {
-          body: JSON.stringify({ a: 'value', b: 42 }),
-        },
+        expectedBody: JSON.stringify({ a: 'value', b: 42 }),
       },
       {
         description: 'with body as string',
         body: '{"a":"value","b":42}' as unknown as { a: string; b: number },
-        expectedOptions: {
-          body: '{"a":"value","b":42}',
-        },
+        expectedBody: '{"a":"value","b":42}',
       },
     ];
     const mockFetcher = createMockFetcher();
@@ -229,15 +202,17 @@ describe('ApiService', () => {
     test.each(testCasesDeleteWithBody)(
       'should call fetcher $description with correct parameters',
       async (testCase) => {
-        const { body, expectedOptions } = testCase;
+        const { body, expectedBody } = testCase;
 
         await apiService.delete('/test-endpoint', {
           body,
         });
 
-        expect(mockFetcher.delete).toHaveBeenCalledWith(
+        expect(mockFetcher.fetch).toHaveBeenCalledWith(
           '/test-endpoint',
-          expectedOptions,
+          'DELETE',
+          expectedBody,
+          {},
         );
       },
     );
@@ -245,19 +220,17 @@ describe('ApiService', () => {
 });
 
 describe('With path parameters', () => {
-  type TestEndpointWithPathParams = Endpoint.Get<
-    '/test-endpoint/:id/details/:detailId',
-    { verbose?: boolean },
-    UnknownObject
-  >;
+  type TestEndpointWithPathParams = Endpoint<{
+    method: 'GET';
+    path: '/test-endpoint/:id/details/:detailId';
+    query?: { verbose?: boolean };
+    response: UnknownObject;
+  }>;
 
   const testCasesGetWithPathParams: {
     pathParams: { id: string; detailId: string };
     searchParams?: { verbose?: boolean };
     expectedUrl: string;
-    expectedOptions: {
-      body: string | undefined;
-    };
     description: string;
   }[] = [
     {
@@ -265,18 +238,12 @@ describe('With path parameters', () => {
       pathParams: { id: '123', detailId: '456' },
       searchParams: undefined,
       expectedUrl: '/test-endpoint/123/details/456',
-      expectedOptions: {
-        body: undefined,
-      },
     },
     {
       description: 'with path params and query params',
       pathParams: { id: '123', detailId: '456' },
       searchParams: { verbose: true },
       expectedUrl: '/test-endpoint/123/details/456?verbose=true',
-      expectedOptions: {
-        body: undefined,
-      },
     },
   ];
   const mockFetcher = createMockFetcher();
@@ -289,17 +256,18 @@ describe('With path parameters', () => {
   test.each(testCasesGetWithPathParams)(
     'should call fetcher $description with correct parameters',
     async (testCase) => {
-      const { pathParams, searchParams, expectedUrl, expectedOptions } =
-        testCase;
+      const { pathParams, searchParams, expectedUrl } = testCase;
 
       await apiService.get('/test-endpoint/:id/details/:detailId', {
         pathParams,
         searchParams,
       });
 
-      expect(mockFetcher.get).toHaveBeenCalledWith(
+      expect(mockFetcher.fetch).toHaveBeenCalledWith(
         expectedUrl,
-        expectedOptions,
+        'GET',
+        undefined,
+        {},
       );
     },
   );
@@ -307,11 +275,7 @@ describe('With path parameters', () => {
 
 function createMockFetcher(): GenericFetcher {
   const fetcher: GenericFetcher = {
-    get: vi.fn(),
-    post: vi.fn(),
-    put: vi.fn(),
-    delete: vi.fn(),
-    patch: vi.fn(),
+    fetch: vi.fn(),
   };
   return fetcher;
 }

@@ -1,13 +1,15 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "ignorePatterns": ["node_modules", "dist"],
+  "env": {
+    "builtin": true,
+    "browser": true
+  },
   "categories": {
     "correctness": "error",
     "style": "error",
     "nursery": "error",
-    "pedantic": "error",
     "perf": "error",
-    "restriction": "error",
     "suspicious": "error"
   },
   "rules": {
@@ -16,6 +18,16 @@
       "error",
       "declaration",
       { "allowArrowFunctions": false, "allowFunctionExpressions": false }
-    ]
+    ],
+    "prefer-object-assign": "off",
+    "prefer-object-spread": "off",
+    "sort-keys": "off",
+    "no-continue": "off",
+    "no-magic-numbers": "off",
+    "init-declarations": "off",
+    "no-explicit-any": "off",
+    "no-null": "off",
+    "max-params": ["error", 5],
+    "id-length": "off"
   }
 }

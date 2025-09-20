@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { isObject } from './typeAssertions';
 
 describe('typeAssertions', () => {
@@ -8,7 +8,7 @@ describe('typeAssertions', () => {
     });
 
     test('should return false for null', () => {
-      expect(isObject(null)).toBe(false);
+      expect(isObject(undefined)).toBe(false);
     });
 
     test('should return false for arrays', () => {

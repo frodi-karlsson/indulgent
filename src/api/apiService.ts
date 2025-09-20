@@ -1,36 +1,31 @@
-import type { CurlyLips, UnknownObject } from '../types/object';
+import type { UnknownObject } from '../types/object';
 import type { WithoutEmptyObject } from '../types/util';
-import { stringifyIfNotString } from '../util/json';
 import { deepMerge } from '../util/object';
+import { stringifyIfNotString } from '../util/json';
 
 export const defaultFetcher: GenericFetcher<RequestInit> = {
-  get: async (url, options) => {
-    return await fetch(url, options).then((res) => res.json());
-  },
-  post: async (url, options) => {
-    return await fetch(url, { ...options, method: 'POST' }).then((res) =>
-      res.json(),
-    );
-  },
-  put: async (url, options) => {
-    return await fetch(url, { ...options, method: 'PUT' }).then((res) =>
-      res.json(),
-    );
-  },
-  patch: async (url, options) => {
-    return await fetch(url, { ...options, method: 'PATCH' }).then((res) =>
-      res.json(),
-    );
-  },
-  delete: async (url, options) => {
-    return await fetch(url, { ...options, method: 'DELETE' }).then((res) =>
-      res.json(),
-    );
+  fetch: async <ResponseData = unknown>(
+    url: string,
+    method: HttpMethod,
+    body?: string,
+    options?: RequestInit,
+  ): Promise<ResponseData> => {
+    const response = await fetch(url, { ...options, method, body });
+    if (!response.ok) {
+      throw new Error(
+        `HTTP error! status: ${response.status}, statusText: ${response.statusText}`,
+      );
+    }
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return (await response.json()) as ResponseData;
+    }
+    return (await response.text()) as ResponseData;
   },
 };
 
-type GetFetchOptionsFromFetcher<T extends GenericFetcher<UnknownObject>> =
-  T extends GenericFetcher<infer Options> ? Options : Record<string, unknown>;
+type GetFetchOptionsFromFetcher<T extends GenericFetcher<Record<string, any>>> =
+  T extends GenericFetcher<infer Options> ? Options : never;
 
 /**
  * Generic API service, supporting type safety for endpoints, path params, query params and request/response bodies.
@@ -43,10 +38,10 @@ type GetFetchOptionsFromFetcher<T extends GenericFetcher<UnknownObject>> =
  * import { ApiService, Endpoint } from "indulgent";
  *
  * // A GET endpoint with path param `id` and optional query param `q`, returning an object with `id` and `name`
- * type GetItem = Endpoint.Get<"/items/:id", { q?: string }, { id: string; name: string }>;
+ * type GetItem = Endpoint<{ method: "GET"; path: "/items/:id"; pathParams: { id: string }; searchParams: { q?: string }; response: { id: string; name: string } }>;
  *
  * // A POST endpoint with no path params, accepting a JSON body with `name`, returning an object with `id` and `name`
- * type CreateItem = Endpoint.Post<"/items", { name: string }, { id: string; name: string }>;
+ * type CreateItem = Endpoint<{ method: "POST"; path: "/items"; request: { name: string }; response: { id: string; name: string } }>;
  *
  * class MyApiService extends ApiService<GetItem | CreateItem> {}
  * const api = new MyApiService();
@@ -59,12 +54,11 @@ type GetFetchOptionsFromFetcher<T extends GenericFetcher<UnknownObject>> =
  *
  */
 export abstract class ApiService<
-  // oxlint-disable-next-line no-explicit-any
   Endpoints extends BaseEndpoint<any, any, any, any, any>,
   Fetcher extends GenericFetcher = typeof defaultFetcher,
   OptionType extends
     GetFetchOptionsFromFetcher<Fetcher> = GetFetchOptionsFromFetcher<Fetcher>,
-> implements IApi<Endpoints, OptionType>
+> implements IApi<Endpoints>
 {
   private readonly fetcher: GenericFetcher<OptionType>;
   private readonly defaultOptions?: OptionType;
@@ -77,11 +71,13 @@ export abstract class ApiService<
     this.defaultOptions = opt?.defaultOptions;
   }
 
-  private mergeOptionsWithDefaults<
-    T extends FetchOptionType<string, Endpoints, OptionType>,
-  >(options: T | undefined): T {
-    const resolved: T = { ...this.defaultOptions } as T;
-    return options ? deepMerge(resolved, options) : resolved;
+  private mergeOptionsWithDefaults(options?: Partial<OptionType>): OptionType {
+    // we know this is safe because of the conditional type on the options parameter
+    const resolved = { ...this.defaultOptions } as OptionType;
+    if (options) {
+      return deepMerge(resolved, options);
+    }
+    return resolved;
   }
 
   private resolvePathParams<Path extends string>(
@@ -115,7 +111,10 @@ export abstract class ApiService<
       }
     }
     const queryString = urlObj.searchParams.toString();
-    return queryString ? `${urlObj.pathname}?${queryString}` : urlObj.pathname;
+    if (queryString) {
+      return `${urlObj.pathname}?${queryString}`;
+    }
+    return urlObj.pathname;
   }
 
   private resolveUrl<Path extends string>(
@@ -127,81 +126,111 @@ export abstract class ApiService<
     return this.resolveSearchParams(urlWithPathParams, searchParams);
   }
 
-  private cleanOptions<T extends UnknownObject>(options: T): T {
-    const cleaned = { ...options };
-    delete cleaned['pathParams'];
-    delete cleaned['searchParams'];
-    delete cleaned['body'];
-    return cleaned;
+  async fetch<ResponseData, E extends Endpoint<{}>>(
+    url: E['path'],
+    options: FetchOptionType<E>,
+    fetchOptions?: Partial<OptionType>,
+  ): Promise<ResponseData> {
+    const resolvedOptions = this.mergeOptionsWithDefaults(fetchOptions);
+    const optionsBody = options?.['body'];
+    let body: string | undefined;
+    if (optionsBody !== undefined) {
+      body = stringifyIfNotString(optionsBody);
+    }
+
+    return this.fetcher.fetch<ResponseData>(
+      this.resolveUrl(url, options?.['pathParams'], options?.['searchParams']),
+      options.method,
+      body,
+      resolvedOptions,
+    );
   }
 
-  get: IApi<Endpoints, OptionType>['get'] = async (url, options) => {
-    const resolvedOptions = this.mergeOptionsWithDefaults(options);
-    return await this.fetcher.get(
-      this.resolveUrl(
-        url,
-        resolvedOptions['pathParams'],
-        resolvedOptions['searchParams'],
-      ),
-      this.cleanOptions(resolvedOptions),
-    );
-  };
+  private methodToFetchOptions<
+    E extends Endpoint<{ method: Method }>,
+    Method extends HttpMethod,
+  >(
+    methodFetchOptions: MethodFetchOptionType<E>,
+    method: Method,
+  ): FetchOptionType<E> {
+    return {
+      body: methodFetchOptions?.body,
+      pathParams: methodFetchOptions?.pathParams,
+      searchParams: methodFetchOptions?.searchParams,
+      method: method,
+    };
+  }
 
-  post: IApi<Endpoints, OptionType>['post'] = async (url, options) => {
-    const resolvedOptions = this.mergeOptionsWithDefaults(options);
-    const optionsBody = resolvedOptions['body'];
-    const body = optionsBody ? stringifyIfNotString(optionsBody) : undefined;
-    return await this.fetcher.post(
-      this.resolveUrl(
-        url,
-        resolvedOptions['pathParams'],
-        resolvedOptions['searchParams'],
-      ),
-      Object.assign({}, this.cleanOptions(resolvedOptions), { body }),
+  async get<ResponseData, Path extends (Endpoints & { method: 'GET' })['path']>(
+    url: Path,
+    options?: MethodFetchOptionType<Endpoints & { method: 'GET'; path: Path }>,
+    fetchOptions?: Partial<OptionType>,
+  ): Promise<ResponseData> {
+    return this.fetch<ResponseData, Endpoints & { method: 'GET'; path: Path }>(
+      url,
+      this.methodToFetchOptions({ ...options }, 'GET'),
+      fetchOptions,
     );
-  };
+  }
 
-  put: IApi<Endpoints, OptionType>['put'] = async (url, options) => {
-    const resolvedOptions = this.mergeOptionsWithDefaults(options);
-    const optionsBody = resolvedOptions['body'];
-    const body = optionsBody ? stringifyIfNotString(optionsBody) : undefined;
-    return await this.fetcher.put(
-      this.resolveUrl(
-        url,
-        resolvedOptions['pathParams'],
-        resolvedOptions['searchParams'],
-      ),
-      Object.assign({}, this.cleanOptions(resolvedOptions), { body }),
+  async post<
+    ResponseData,
+    Path extends (Endpoints & { method: 'POST' })['path'],
+  >(
+    url: Path,
+    options?: MethodFetchOptionType<Endpoints & { method: 'POST'; path: Path }>,
+    fetchOptions?: Partial<OptionType>,
+  ): Promise<ResponseData> {
+    return this.fetch<ResponseData, Endpoints & { method: 'POST'; path: Path }>(
+      url,
+      this.methodToFetchOptions({ ...options }, 'POST'),
+      fetchOptions,
     );
-  };
+  }
 
-  patch: IApi<Endpoints, OptionType>['patch'] = async (url, options) => {
-    const resolvedOptions = this.mergeOptionsWithDefaults(options);
-    const optionsBody = resolvedOptions['body'];
-    const body = optionsBody ? stringifyIfNotString(optionsBody) : undefined;
-    return await this.fetcher.patch(
-      this.resolveUrl(
-        url,
-        resolvedOptions['pathParams'],
-        resolvedOptions['searchParams'],
-      ),
-      Object.assign({}, this.cleanOptions(resolvedOptions), { body }),
-    );
-  };
+  async patch<
+    ResponseData,
+    Path extends (Endpoints & { method: 'PATCH' })['path'],
+  >(
+    url: Path,
+    options?: MethodFetchOptionType<
+      Endpoints & { method: 'PATCH'; path: Path }
+    >,
+    fetchOptions?: Partial<OptionType>,
+  ): Promise<ResponseData> {
+    return this.fetch<
+      ResponseData,
+      Endpoints & { method: 'PATCH'; path: Path }
+    >(url, this.methodToFetchOptions({ ...options }, 'PATCH'), fetchOptions);
+  }
 
-  delete: IApi<Endpoints, OptionType>['delete'] = async (url, options) => {
-    const resolvedOptions = this.mergeOptionsWithDefaults(options);
-    const optionsBody = resolvedOptions['body'];
-    const body = optionsBody ? stringifyIfNotString(optionsBody) : undefined;
-    return await this.fetcher.delete(
-      this.resolveUrl(
-        url,
-        resolvedOptions['pathParams'],
-        resolvedOptions['searchParams'],
-      ),
-      Object.assign({}, this.cleanOptions(resolvedOptions), { body }),
+  async put<ResponseData, Path extends (Endpoints & { method: 'PUT' })['path']>(
+    url: Path,
+    options?: MethodFetchOptionType<Endpoints & { method: 'PUT'; path: Path }>,
+    fetchOptions?: Partial<OptionType>,
+  ): Promise<ResponseData> {
+    return this.fetch<ResponseData, Endpoints & { method: 'PUT'; path: Path }>(
+      url,
+      this.methodToFetchOptions({ ...options }, 'PUT'),
+      fetchOptions,
     );
-  };
+  }
+
+  async delete<
+    ResponseData,
+    Path extends Endpoint<{ method: 'DELETE' }>['path'],
+  >(
+    url: Path,
+    options?: MethodFetchOptionType<
+      Endpoints & { method: 'DELETE'; path: Path }
+    >,
+    fetchOptions?: Partial<OptionType>,
+  ): Promise<ResponseData> {
+    return this.fetch<
+      ResponseData,
+      Endpoints & { method: 'DELETE'; path: Path }
+    >(url, this.methodToFetchOptions({ ...options }, 'DELETE'), fetchOptions);
+  }
 }
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
@@ -214,7 +243,7 @@ type PathParamsRec<Path extends string> =
     ? { [K in Param]: string } & PathParamsRec<`/${Rest}`>
     : Path extends `${string}/:${infer Param}`
       ? { [K in Param]: string }
-      : CurlyLips;
+      : undefined;
 
 type PathParams<Path extends string> =
   // here we clean out that {} case, substituting never
@@ -234,180 +263,104 @@ interface BaseEndpoint<
   path: Path;
   method: Method;
   pathParams: [string] extends [Path] ? unknown : PathParams<Path>;
-  searchParams?: SearchParams;
+  searchParams: SearchParams;
   response: ResponseData;
   body: BodyData;
 }
 
-type DefaultEndpoint = BaseEndpoint<
-  HttpMethod,
-  unknown,
-  BodyRestriction,
-  UnknownObject,
-  string
->;
-
-export type FetchOptionType<
-  Path extends string,
-  Endpoint extends BaseEndpoint<
-    HttpMethod,
-    unknown,
-    BodyRestriction,
-    UnknownObject,
-    Path
+export interface Endpoint<
+  T extends Partial<
+    BaseEndpoint<HttpMethod, unknown, BodyRestriction, UnknownObject, string>
   >,
-  OptionType extends UnknownObject,
-> = WithoutProprietaryProperties<OptionType> &
-  (PathParams<Path> extends never ? {} : { pathParams: PathParams<Path> }) &
-  (Endpoint['searchParams'] extends never
-    ? {}
-    : { searchParams?: Endpoint['searchParams'] }) &
-  (Endpoint['body'] extends never ? {} : { body: Endpoint['body'] });
-
-// eslint-disable-next-line @typescript-eslint/no-namespace
-export namespace Endpoint {
-  export type Get<
-    Path extends string,
-    SearchParams extends UnknownObject,
-    ResponseData,
-  > = BaseEndpoint<'GET', ResponseData, never, SearchParams, Path>;
-
-  export type Post<
-    Path extends string,
-    BodyData extends BodyRestriction,
-    ResponseData,
-  > = BaseEndpoint<'POST', ResponseData, BodyData, never, Path>;
-
-  export type Put<
-    Path extends string,
-    BodyData extends BodyRestriction,
-    ResponseData,
-  > = BaseEndpoint<'PUT', ResponseData, BodyData, never, Path>;
-
-  export type Patch<
-    Path extends string,
-    BodyData extends BodyRestriction,
-    ResponseData,
-  > = BaseEndpoint<'PATCH', ResponseData, BodyData, never, Path>;
-
-  export type Delete<
-    Path extends string,
-    BodyData extends BodyRestriction,
-    ResponseData,
-  > = BaseEndpoint<'DELETE', ResponseData, BodyData, never, Path>;
-}
-
-type FilterEndpointsByMethod<
-  Endpoints extends DefaultEndpoint,
-  Method extends HttpMethod,
-> =
-  Endpoints extends BaseEndpoint<
-    Method,
-    unknown,
-    BodyRestriction,
-    UnknownObject,
-    infer Path
-  >
-    ? BaseEndpoint<Method, unknown, BodyRestriction, UnknownObject, Path>
-    : never;
-
-export interface IApi<
-  Endpoints extends DefaultEndpoint,
-  FetchOptions extends UnknownObject = UnknownObject,
 > {
-  get: <Path extends FilterEndpointsByMethod<Endpoints, 'GET'>['path']>(
-    url: Path,
-    options?: FetchOptionType<
-      Path,
-      FilterEndpointsByPath<Endpoints, Path>,
-      FetchOptions
-    >,
-  ) => Promise<FilterEndpointsByPath<Endpoints, Path>['response']>;
-
-  post: <Path extends FilterEndpointsByMethod<Endpoints, 'POST'>['path']>(
-    url: Path,
-    options?: FetchOptionType<
-      Path,
-      FilterEndpointsByPath<Endpoints, Path>,
-      FetchOptions
-    >,
-  ) => Promise<FilterEndpointsByPath<Endpoints, Path>['response']>;
-
-  put: <Path extends FilterEndpointsByMethod<Endpoints, 'PUT'>['path']>(
-    url: Path,
-    options?: FetchOptionType<
-      Path,
-      FilterEndpointsByPath<Endpoints, Path>,
-      FetchOptions
-    >,
-  ) => Promise<FilterEndpointsByPath<Endpoints, Path>['response']>;
-
-  patch: <Path extends FilterEndpointsByMethod<Endpoints, 'PATCH'>['path']>(
-    url: Path,
-    options?: FetchOptionType<
-      Path,
-      FilterEndpointsByPath<Endpoints, Path>,
-      FetchOptions
-    >,
-  ) => Promise<FilterEndpointsByPath<Endpoints, Path>['response']>;
-
-  delete: <Path extends FilterEndpointsByMethod<Endpoints, 'DELETE'>['path']>(
-    url: Path,
-    options?: FetchOptionType<
-      Path,
-      FilterEndpointsByPath<Endpoints, Path>,
-      FetchOptions
-    >,
-  ) => Promise<FilterEndpointsByPath<Endpoints, Path>['response']>;
+  method: T['method'] & HttpMethod;
+  path: T['path'] & string;
+  response: T['response'];
+  body: T['body'];
+  pathParams: T['pathParams'];
+  searchParams: T['searchParams'];
 }
 
-type WithoutProprietaryProperties<T extends UnknownObject> = Omit<
-  T,
-  'pathParams' | 'searchParams' | 'body'
+export type FetchOptionType<E extends Endpoint<{}>> = Pick<
+  E,
+  'pathParams' | 'searchParams' | 'body' | 'method'
 >;
+
+export type MethodFetchOptionType<E extends Endpoint<{}>> = Partial<
+  Omit<FetchOptionType<E>, 'method'>
+>;
+
+export type IApi<Endpoints extends BaseEndpoint<any, any, any, any, any>> = {
+  fetch: <ResponseData, Path extends string>(
+    url: Path,
+    options: FetchOptionType<Endpoints>,
+  ) => Promise<ResponseData>;
+} & {
+  [Method in HttpMethod as Method extends 'GET'
+    ? 'get'
+    : Method extends 'POST'
+      ? 'post'
+      : Method extends 'PUT'
+        ? 'put'
+        : Method extends 'DELETE'
+          ? 'delete'
+          : never]: <ResponseData, Path extends string>(
+    url: Path,
+    options: MethodFetchOptionType<Endpoints>,
+  ) => Promise<ResponseData>;
+};
 
 export interface GenericFetcher<
-  // oxlint-disable-next-line no-explicit-any
   OptionType extends Record<string, any> = Record<string, any>,
 > {
-  get: <ResponseData = unknown>(
+  fetch: <ResponseData = unknown>(
     url: string,
-    options?: Partial<WithoutProprietaryProperties<OptionType>>,
-  ) => Promise<ResponseData>;
-  post: <ResponseData = unknown>(
-    url: string,
-    options?: Partial<WithoutProprietaryProperties<OptionType>>,
-  ) => Promise<ResponseData>;
-  put: <ResponseData = unknown>(
-    url: string,
-    options?: Partial<WithoutProprietaryProperties<OptionType>>,
-  ) => Promise<ResponseData>;
-  patch: <ResponseData = unknown>(
-    url: string,
-    options?: Partial<WithoutProprietaryProperties<OptionType>>,
-  ) => Promise<ResponseData>;
-  delete: <ResponseData = unknown>(
-    url: string,
-    options?: Partial<WithoutProprietaryProperties<OptionType>>,
+    method: HttpMethod,
+    body?: string,
+    options?: OptionType,
   ) => Promise<ResponseData>;
 }
 
-type FilterEndpointsByPath<
-  Endpoints extends BaseEndpoint<
-    HttpMethod,
-    unknown,
-    BodyRestriction,
-    UnknownObject,
-    string
-  >,
-  Path extends string,
-> =
-  Endpoints extends BaseEndpoint<
-    HttpMethod,
-    unknown,
-    BodyRestriction | never,
-    UnknownObject,
-    Path
-  >
-    ? Endpoints & { path: Path }
-    : never;
+const weatherFetcher: GenericFetcher<RequestInit> = {
+  fetch: async <ResponseData = unknown>(
+    url: string,
+    method: HttpMethod,
+    body?: string,
+    options?: RequestInit,
+  ): Promise<ResponseData> => {
+    const response = await fetch(`https://api.weatherapi.com/v1${url}`, {
+      ...options,
+      method,
+      body,
+    });
+    if (!response.ok) {
+      throw new Error(
+        `HTTP error! status: ${response.status}, statusText: ${response.statusText}`,
+      );
+    }
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return (await response.json()) as ResponseData;
+    }
+    return (await response.text()) as ResponseData;
+  },
+};
+
+type WeatherEndpoint = Endpoint<{
+  method: 'GET';
+  path: '/current/:id';
+  pathParams: { id: string };
+  searchParams: { q: string; days?: number };
+  response: { location: unknown; current: unknown; forecast?: unknown };
+}>;
+
+type WeatherAliveEndpoint = Endpoint<{
+  method: 'GET';
+  path: '/alive';
+  response: { status: 'alive' };
+}>;
+
+export class WeatherApiService extends ApiService<
+  WeatherEndpoint | WeatherAliveEndpoint,
+  typeof weatherFetcher
+> {}

@@ -1,3 +1,6 @@
 export function stringifyIfNotString(value: unknown): string {
-  return typeof value === 'string' ? value : JSON.stringify(value);
+  if (typeof value === 'string') {
+    return value;
+  }
+  return JSON.stringify(value);
 }

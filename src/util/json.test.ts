@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { stringifyIfNotString } from './json';
 
 describe('JSON utilities', () => {
@@ -31,6 +31,12 @@ describe('JSON utilities', () => {
       const input = null;
       const result = stringifyIfNotString(input);
       expect(result).toBe('null');
+    });
+
+    test('should handle undefined correctly', () => {
+      const input = undefined;
+      const result = stringifyIfNotString(input);
+      expect(result).toBe(JSON.stringify(input));
     });
 
     test('should handle undefined correctly', () => {
