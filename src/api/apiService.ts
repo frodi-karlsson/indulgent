@@ -341,7 +341,7 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
 /**
  * The type of the request body, either an object, undefined (no body), or never (no body allowed).
  */
-type Body = UnknownObject | never | undefined;
+export type Body = UnknownObject | never | undefined;
 
 // an intersection of parameter objects based on `:${param}`s in the path, or {} if none
 type PathParamsRec<Path extends string> =

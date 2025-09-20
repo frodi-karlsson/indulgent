@@ -17,6 +17,11 @@
     "build": "tsc",
     "docs": "typedoc --out docs src --includeVersion --excludePrivate --excludeProtected --excludeExternals"
   },
+  "exports": {
+    "util": "./src/util/index.ts",
+    "api": "./src/api/index.ts",
+    "types": "./src/types/index.ts"
+  },
   "keywords": [],
   "author": "frodi <frodikarlsson@gmail.com>",
   "license": "ISC",
