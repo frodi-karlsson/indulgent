@@ -21,15 +21,15 @@ importers:
       oxlint:
         specifier: ^1.16.0
         version: 1.16.0(oxlint-tsgolint@0.2.0)
-      oxlint-tsgolint:
-        specifier: ^0.2.0
-        version: 0.2.0
       prettier:
         specifier: ^3.6.2
         version: 3.6.2
       typedoc:
         specifier: ^0.28.13
         version: 0.28.13(typescript@5.9.2)
+      typedoc-github-theme:
+        specifier: ^0.3.1
+        version: 0.3.1(typedoc@0.28.13(typescript@5.9.2))
       typescript:
         specifier: ^5.9.2
         version: 5.9.2
@@ -641,6 +641,12 @@ packages:
     resolution: {integrity: sha512-azl+t0z7pw/z958Gy9svOTuzqIk6xq+NSheJzn5MMWtWTFywIacg2wUlzKFGtt3cthx0r2SxMK0yzJOR0IES7Q==}
     engines: {node: '>=14.0.0'}
 
+  typedoc-github-theme@0.3.1:
+    resolution: {integrity: sha512-j6PmkAGmf/MGCzYjQcUH6jS9djPsNl/IoTXooxC+MoeMkBhbmPyKJlpR6Lw12BLoe2OYpYA2J1KMktUJXp/8Sw==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      typedoc: ~0.28.0
+
   typedoc@0.28.13:
     resolution: {integrity: sha512-dNWY8msnYB2a+7Audha+aTF1Pu3euiE7ySp53w8kEsXoYw7dMouV5A1UsTUY345aB152RHnmRMDiovuBi7BD+w==}
     engines: {node: '>= 18', pnpm: '>= 10'}
@@ -1153,6 +1159,7 @@ snapshots:
       '@oxlint-tsgolint/linux-x64': 0.2.0
       '@oxlint-tsgolint/win32-arm64': 0.2.0
       '@oxlint-tsgolint/win32-x64': 0.2.0
+    optional: true
 
   oxlint@1.16.0(oxlint-tsgolint@0.2.0):
     optionalDependencies:
@@ -1237,6 +1244,10 @@ snapshots:
   tinyrainbow@2.0.0: {}
 
   tinyspy@4.0.4: {}
+
+  typedoc-github-theme@0.3.1(typedoc@0.28.13(typescript@5.9.2)):
+    dependencies:
+      typedoc: 0.28.13(typescript@5.9.2)
 
   typedoc@0.28.13(typescript@5.9.2):
     dependencies:
