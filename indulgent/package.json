@@ -1,0 +1,28 @@
+{
+  "name": "indulgent",
+  "version": "0.0.1-alpha.1",
+  "licenses": [
+    {
+      "type": "ISC"
+    }
+  ],
+  "scripts": {
+    "build": "tsc",
+    "docs": " typedoc --out docs --includeVersion --excludePrivate --excludeProtected --excludeExternals --plugin typedoc-github-theme --theme typedoc-github-theme"
+  },
+  "exports": {
+    "./util": "./dist/util/index.js",
+    "./api": "./dist/api/index.js",
+    "./types": "./dist/types/index.js"
+  },
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "keywords": [],
+  "author": "frodi <frodikarlsson@gmail.com>",
+  "license": "ISC",
+  "packageManager": "pnpm@10.17.0",
+  "engines": {
+    "node": ">=22"
+  }
+}

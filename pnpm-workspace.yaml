@@ -1,0 +1,4 @@
+packages:
+  - 'indulgent'
+  - 'examples/*'
+link-workspace-packages: true

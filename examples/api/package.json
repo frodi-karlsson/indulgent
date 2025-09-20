@@ -1,0 +1,17 @@
+{
+  "name": "@indulgent/examples-api",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.17.0",
+  "dependencies": {
+    "indulgent": "workspace:^0"
+  }
+}

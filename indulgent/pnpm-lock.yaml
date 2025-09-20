@@ -37,14 +37,6 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@24.5.2)(happy-dom@18.0.1)(yaml@2.8.1)
 
-  examples/api:
-    dependencies:
-      indulgent:
-        specifier: workspace:^0
-        version: link:../../indulgent
-
-  indulgent: {}
-
 packages:
 
   '@esbuild/aix-ppc64@0.25.10':
