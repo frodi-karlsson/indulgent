@@ -92,11 +92,11 @@ export abstract class ApiService<
    * const data = await api.fetch('/some-endpoint', { method: 'GET', pathParams: { id: '123' }, query: { q: 'search' } });
    * `
    */
-  async fetch<ResponseData, E extends Endpoint<{}>>(
+  async fetch<E extends Endpoint<{}>>(
     url: E['path'],
     options: FetchOptionType<E>,
     fetchOptions?: Partial<OptionType>,
-  ): Promise<ResponseData> {
+  ): Promise<E['response']> {
     const resolvedOptions = this.mergeOptionsWithDefaults(fetchOptions);
     const optionsBody = options?.['body'];
     let body: string | undefined;
@@ -104,7 +104,7 @@ export abstract class ApiService<
       body = stringifyIfNotString(optionsBody);
     }
 
-    return this.fetcher.fetch<ResponseData>(
+    return this.fetcher.fetch<E['response']>(
       this.resolveUrl(url, options?.['pathParams'], options?.['query']),
       options.method,
       body,
@@ -121,20 +121,18 @@ export abstract class ApiService<
    * const data = await api.get('/some-endpoint', { pathParams: { id: '123' }, query: { q: 'search' } });
    * ```
    */
-  async get<
-    ResponseData,
-    Path extends Extract<Endpoints, { method: 'GET' }>['path'],
-  >(
+  async get<Path extends Extract<Endpoints, { method: 'GET' }>['path']>(
     url: Path,
     options?: MethodFetchOptionType<
       Extract<Endpoints, { path: Path; method: 'GET' }>
     >,
     fetchOptions?: Partial<OptionType>,
-  ): Promise<ResponseData> {
-    return this.fetch<
-      ResponseData,
-      Extract<Endpoints, { path: Path; method: 'GET' }>
-    >(url, this.methodToFetchOptions({ ...options }, 'GET'), fetchOptions);
+  ): Promise<Extract<Endpoints, { path: Path; method: 'GET' }>['response']> {
+    return this.fetch<Extract<Endpoints, { path: Path; method: 'GET' }>>(
+      url,
+      this.methodToFetchOptions({ ...options }, 'GET'),
+      fetchOptions,
+    );
   }
 
   /**
@@ -146,20 +144,18 @@ export abstract class ApiService<
    * const data = await api.post('/some-endpoint', { body: { key: 'value' } });
    * ```
    */
-  async post<
-    ResponseData,
-    Path extends Extract<Endpoints, { method: 'POST' }>['path'],
-  >(
+  async post<Path extends Extract<Endpoints, { method: 'POST' }>['path']>(
     url: Path,
     options?: MethodFetchOptionType<
       Extract<Endpoints, { method: 'POST'; path: Path }>
     >,
     fetchOptions?: Partial<OptionType>,
-  ): Promise<ResponseData> {
-    return this.fetch<
-      ResponseData,
-      Extract<Endpoints, { method: 'POST'; path: Path }>
-    >(url, this.methodToFetchOptions({ ...options }, 'POST'), fetchOptions);
+  ): Promise<Extract<Endpoints, { method: 'POST'; path: Path }>['response']> {
+    return this.fetch<Extract<Endpoints, { method: 'POST'; path: Path }>>(
+      url,
+      this.methodToFetchOptions({ ...options }, 'POST'),
+      fetchOptions,
+    );
   }
 
   /**
@@ -171,20 +167,18 @@ export abstract class ApiService<
    * const data = await api.patch('/some-endpoint', { body: { key: 'value' } });
    * ```
    */
-  async patch<
-    ResponseData,
-    Path extends Extract<Endpoints, { method: 'PATCH' }>['path'],
-  >(
+  async patch<Path extends Extract<Endpoints, { method: 'PATCH' }>['path']>(
     url: Path,
     options?: MethodFetchOptionType<
       Extract<Endpoints, { method: 'PATCH'; path: Path }>
     >,
     fetchOptions?: Partial<OptionType>,
-  ): Promise<ResponseData> {
-    return this.fetch<
-      ResponseData,
-      Extract<Endpoints, { method: 'PATCH'; path: Path }>
-    >(url, this.methodToFetchOptions({ ...options }, 'PATCH'), fetchOptions);
+  ): Promise<Extract<Endpoints, { method: 'PATCH'; path: Path }>['response']> {
+    return this.fetch<Extract<Endpoints, { method: 'PATCH'; path: Path }>>(
+      url,
+      this.methodToFetchOptions({ ...options }, 'PATCH'),
+      fetchOptions,
+    );
   }
 
   /**
@@ -196,20 +190,18 @@ export abstract class ApiService<
    * const data = await api.put('/some-endpoint', { body: { key: 'value' } });
    * ```
    */
-  async put<
-    ResponseData,
-    Path extends Extract<Endpoints, { method: 'PUT' }>['path'],
-  >(
+  async put<Path extends Extract<Endpoints, { method: 'PUT' }>['path']>(
     url: Path,
     options?: MethodFetchOptionType<
       Extract<Endpoints, { method: 'PUT'; path: Path }>
     >,
     fetchOptions?: Partial<OptionType>,
-  ): Promise<ResponseData> {
-    return this.fetch<
-      ResponseData,
-      Extract<Endpoints, { method: 'PUT'; path: Path }>
-    >(url, this.methodToFetchOptions({ ...options }, 'PUT'), fetchOptions);
+  ): Promise<Extract<Endpoints, { method: 'PUT'; path: Path }>['response']> {
+    return this.fetch<Extract<Endpoints, { method: 'PUT'; path: Path }>>(
+      url,
+      this.methodToFetchOptions({ ...options }, 'PUT'),
+      fetchOptions,
+    );
   }
 
   /**
@@ -221,20 +213,18 @@ export abstract class ApiService<
    * const data = await api.delete('/some-endpoint', { pathParams: { id: '123' } });
    * ```
    */
-  async delete<
-    ResponseData,
-    Path extends Endpoint<{ method: 'DELETE' }>['path'],
-  >(
+  async delete<Path extends Endpoint<{ method: 'DELETE' }>['path']>(
     url: Path,
     options?: MethodFetchOptionType<
       Extract<Endpoints, { method: 'DELETE'; path: Path }>
     >,
     fetchOptions?: Partial<OptionType>,
-  ): Promise<ResponseData> {
-    return this.fetch<
-      ResponseData,
-      Extract<Endpoints, { method: 'DELETE'; path: Path }>
-    >(url, this.methodToFetchOptions({ ...options }, 'DELETE'), fetchOptions);
+  ): Promise<Extract<Endpoints, { method: 'DELETE'; path: Path }>['response']> {
+    return this.fetch<Extract<Endpoints, { method: 'DELETE'; path: Path }>>(
+      url,
+      this.methodToFetchOptions({ ...options }, 'DELETE'),
+      fetchOptions,
+    );
   }
 
   /**
@@ -246,20 +236,18 @@ export abstract class ApiService<
    * const data = await api.head('/some-endpoint', { pathParams: { id: '123' } });
    * ```
    */
-  async head<
-    ResponseData,
-    Path extends Extract<Endpoints, { method: 'HEAD' }>['path'],
-  >(
+  async head<Path extends Extract<Endpoints, { method: 'HEAD' }>['path']>(
     url: Path,
     options?: MethodFetchOptionType<
       Extract<Endpoints, { method: 'HEAD'; path: Path }>
     >,
     fetchOptions?: Partial<OptionType>,
-  ): Promise<ResponseData> {
-    return this.fetch<
-      ResponseData,
-      Extract<Endpoints, { method: 'HEAD'; path: Path }>
-    >(url, this.methodToFetchOptions({ ...options }, 'HEAD'), fetchOptions);
+  ): Promise<Extract<Endpoints, { method: 'HEAD'; path: Path }>['response']> {
+    return this.fetch<Extract<Endpoints, { method: 'HEAD'; path: Path }>>(
+      url,
+      this.methodToFetchOptions({ ...options }, 'HEAD'),
+      fetchOptions,
+    );
   }
 
   private mergeOptionsWithDefaults(options?: Partial<OptionType>): OptionType {
