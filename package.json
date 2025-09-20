@@ -14,18 +14,20 @@
     "lint": "oxlint",
     "fix": "oxlint --fix --fix-suggestions && pnpm format",
     "test": "vitest",
-    "build": "tsc"
+    "build": "tsc",
+    "docs": "typedoc --out docs src --includeVersion --excludePrivate --excludeProtected --excludeExternals"
   },
   "keywords": [],
   "author": "frodi <frodikarlsson@gmail.com>",
   "license": "ISC",
-  "packageManager": "pnpm@10.6.2",
+  "packageManager": "pnpm@10.17.0",
   "devDependencies": {
     "@types/node": "^24.5.2",
     "happy-dom": "^18.0.1",
     "oxlint": "^1.16.0",
     "oxlint-tsgolint": "^0.2.0",
     "prettier": "^3.6.2",
+    "typedoc": "^0.28.13",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   },

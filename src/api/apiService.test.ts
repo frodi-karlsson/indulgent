@@ -40,7 +40,7 @@ describe('ApiService', () => {
         const { params, expectedUrl } = testCase;
 
         await apiService.get('/test-endpoint', {
-          searchParams: params,
+          query: params,
         });
 
         expect(mockFetcher.fetch).toHaveBeenCalledWith(
@@ -229,20 +229,20 @@ describe('With path parameters', () => {
 
   const testCasesGetWithPathParams: {
     pathParams: { id: string; detailId: string };
-    searchParams?: { verbose?: boolean };
+    query?: { verbose?: boolean };
     expectedUrl: string;
     description: string;
   }[] = [
     {
       description: 'with path params, no query params',
       pathParams: { id: '123', detailId: '456' },
-      searchParams: undefined,
+      query: undefined,
       expectedUrl: '/test-endpoint/123/details/456',
     },
     {
       description: 'with path params and query params',
       pathParams: { id: '123', detailId: '456' },
-      searchParams: { verbose: true },
+      query: { verbose: true },
       expectedUrl: '/test-endpoint/123/details/456?verbose=true',
     },
   ];
@@ -256,11 +256,11 @@ describe('With path parameters', () => {
   test.each(testCasesGetWithPathParams)(
     'should call fetcher $description with correct parameters',
     async (testCase) => {
-      const { pathParams, searchParams, expectedUrl } = testCase;
+      const { pathParams, query, expectedUrl } = testCase;
 
       await apiService.get('/test-endpoint/:id/details/:detailId', {
         pathParams,
-        searchParams,
+        query,
       });
 
       expect(mockFetcher.fetch).toHaveBeenCalledWith(
