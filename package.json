@@ -15,7 +15,12 @@
     "fix": "oxlint --fix --fix-suggestions && pnpm format",
     "test": "vitest",
     "build": "tsc",
-    "docs": "typedoc --out docs src --includeVersion --excludePrivate --excludeProtected --excludeExternals"
+    "docs": "typedoc --out docs --includeVersion --excludePrivate --excludeProtected --excludeExternals --plugin typedoc-github-theme --theme typedoc-github-theme"
+  },
+  "exports": {
+    "util": "./src/util/index.ts",
+    "api": "./src/api/index.ts",
+    "types": "./src/types/index.ts"
   },
   "keywords": [],
   "author": "frodi <frodikarlsson@gmail.com>",
@@ -25,9 +30,9 @@
     "@types/node": "^24.5.2",
     "happy-dom": "^18.0.1",
     "oxlint": "^1.16.0",
-    "oxlint-tsgolint": "^0.2.0",
     "prettier": "^3.6.2",
     "typedoc": "^0.28.13",
+    "typedoc-github-theme": "^0.3.1",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   },
