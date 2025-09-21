@@ -4,7 +4,7 @@
   "entryPointStrategy": "packages",
   "entryPoints": ["indulgent"],
   "packageOptions": {
-    "entryPoints": ["./**/*.ts"]
+    "entryPoints": ["src/**/index.ts"]
   },
   "excludePrivate": true,
   "exclude": ["**/*.test.ts"],
