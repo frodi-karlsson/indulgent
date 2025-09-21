@@ -7,8 +7,7 @@
     }
   ],
   "scripts": {
-    "build": "tsc",
-    "docs": " typedoc --out docs --includeVersion --excludePrivate --excludeProtected --excludeExternals --plugin typedoc-github-theme --theme typedoc-github-theme"
+    "build": "tsc"
   },
   "exports": {
     "./util": "./dist/util/index.js",

@@ -3,3 +3,4 @@ dist
 .pnpm-workspace-state.json
 .modules.yaml
 indulgent-*.tgz
+.DS_Store

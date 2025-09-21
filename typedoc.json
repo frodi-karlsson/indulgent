@@ -1,0 +1,13 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "includeVersion": true,
+  "entryPointStrategy": "packages",
+  "entryPoints": ["indulgent"],
+  "packageOptions": {
+    "entryPoints": ["./**/*.ts"]
+  },
+  "excludePrivate": true,
+  "plugin": ["typedoc-github-theme"],
+  "theme": "typedoc-github-theme",
+  "pretty": true
+}
