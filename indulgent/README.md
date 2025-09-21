@@ -25,24 +25,27 @@ pnpm add indulgent
 See [examples](/examples) and [docs](https://frodi-karlsson.github.io/indulgent/)
 
 ```ts
-import { ApiService } from "indulgent/api"
+import { ApiService } from 'indulgent/api';
 
 type Endpoint = {
-  method: "GET"
-  path: "/posts/:id"
+  method: 'GET';
+  path: '/posts/:id';
   query: {
-    includeComments?: boolean
-  }
+    includeComments?: boolean;
+  };
   response: {
-    id: number
-    title: string
-    content: string
-    comments?: { id: number; content: string }[]
-  }
-}
+    id: number;
+    title: string;
+    content: string;
+    comments?: { id: number; content: string }[];
+  };
+};
 
 class PostApi extends ApiService<Endpoint> {}
-const api = new PostApi()
+const api = new PostApi();
 
-await api.get('/posts/1', { query: { includeComments: true }, pathParams: { id: 1 } })
+await api.get('/posts/1', {
+  query: { includeComments: true },
+  pathParams: { id: 1 },
+});
 ```
