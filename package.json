@@ -37,10 +37,7 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
-    ],
-    "patchedDependencies": {
-      "typedoc": "patches/typedoc.patch"
-    }
+    ]
   },
   "engines": {
     "node": ">=22"
