@@ -1,4 +1,3 @@
-import type { UnknownObject } from '../types/object';
 import type { WithoutEmptyObject } from '../types/util';
 import { deepMerge } from '../util/object';
 import { stringifyIfNotString } from '../util/json';
@@ -24,7 +23,7 @@ export const defaultFetcher: GenericFetcher<RequestInit> = {
       );
     }
     const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
+    if (contentType?.includes('application/json')) {
       return (await response.json()) as ResponseData;
     }
     return (await response.text()) as ResponseData;
@@ -92,7 +91,7 @@ export abstract class ApiService<
    * const data = await api.fetch('/some-endpoint', { method: 'GET', pathParams: { id: '123' }, query: { q: 'search' } });
    * `
    */
-  async fetch<E extends Endpoint<{}>>(
+  async fetch<E extends Endpoint>(
     url: E['path'],
     options: FetchOptionType<E>,
     fetchOptions?: Partial<OptionType>,
@@ -104,12 +103,53 @@ export abstract class ApiService<
       body = stringifyIfNotString(optionsBody);
     }
 
-    return this.fetcher.fetch<E['response']>(
+    return await this.fetcher.fetch<E['response']>(
       this.resolveUrl(url, options?.['pathParams'], options?.['query']),
       options.method,
       body,
       resolvedOptions,
     );
+  }
+
+  try<ErrorType extends Error, Method extends HttpMethod>(
+    method: Method,
+  ): <Path extends Extract<Endpoints, { method: Method }>['path']>(
+    url: Path,
+    options: MethodFetchOptionType<
+      Extract<Endpoints, { method: Method; path: Path }>
+    >,
+    fetchOptions?: Partial<OptionType>,
+  ) => Promise<
+    | [null, Extract<Endpoints, { method: Method; path: Path }>['response']]
+    | [ErrorType, null]
+  > {
+    const methodMap: MethodToMethodFetchFunctionName = {
+      GET: 'get',
+      POST: 'post',
+      PUT: 'put',
+      DELETE: 'delete',
+      PATCH: 'patch',
+      HEAD: 'head',
+    };
+    const methodName = methodMap[method];
+    // we know this is safe because of the conditional type on the options parameter
+    return async <Path extends Extract<Endpoints, { method: Method }>['path']>(
+      url: Path,
+      options: MethodFetchOptionType<
+        Extract<Endpoints, { method: Method; path: Path }>
+      >,
+      fetchOptions?: Partial<OptionType>,
+    ): Promise<
+      | [Extract<Endpoints, { method: Method; path: Path }>['response'], null]
+      | [null, ErrorType]
+    > => {
+      try {
+        const res = await (this[methodName] as any)(url, options, fetchOptions);
+        return [null, res];
+      } catch (error) {
+        return [error as ErrorType, null];
+      }
+    };
   }
 
   /**
@@ -128,9 +168,11 @@ export abstract class ApiService<
     >,
     fetchOptions?: Partial<OptionType>,
   ): Promise<Extract<Endpoints, { path: Path; method: 'GET' }>['response']> {
-    return this.fetch<Extract<Endpoints, { path: Path; method: 'GET' }>>(
+    return await this.fetch<Extract<Endpoints, { path: Path; method: 'GET' }>>(
       url,
-      this.methodToFetchOptions({ ...options }, 'GET'),
+      this.methodToFetchOptions<
+        Extract<Endpoints, { path: Path; method: 'GET' }>
+      >({ ...options }, 'GET'),
       fetchOptions,
     );
   }
@@ -151,7 +193,7 @@ export abstract class ApiService<
     >,
     fetchOptions?: Partial<OptionType>,
   ): Promise<Extract<Endpoints, { method: 'POST'; path: Path }>['response']> {
-    return this.fetch<Extract<Endpoints, { method: 'POST'; path: Path }>>(
+    return await this.fetch<Extract<Endpoints, { method: 'POST'; path: Path }>>(
       url,
       this.methodToFetchOptions({ ...options }, 'POST'),
       fetchOptions,
@@ -174,11 +216,9 @@ export abstract class ApiService<
     >,
     fetchOptions?: Partial<OptionType>,
   ): Promise<Extract<Endpoints, { method: 'PATCH'; path: Path }>['response']> {
-    return this.fetch<Extract<Endpoints, { method: 'PATCH'; path: Path }>>(
-      url,
-      this.methodToFetchOptions({ ...options }, 'PATCH'),
-      fetchOptions,
-    );
+    return await this.fetch<
+      Extract<Endpoints, { method: 'PATCH'; path: Path }>
+    >(url, this.methodToFetchOptions({ ...options }, 'PATCH'), fetchOptions);
   }
 
   /**
@@ -197,7 +237,7 @@ export abstract class ApiService<
     >,
     fetchOptions?: Partial<OptionType>,
   ): Promise<Extract<Endpoints, { method: 'PUT'; path: Path }>['response']> {
-    return this.fetch<Extract<Endpoints, { method: 'PUT'; path: Path }>>(
+    return await this.fetch<Extract<Endpoints, { method: 'PUT'; path: Path }>>(
       url,
       this.methodToFetchOptions({ ...options }, 'PUT'),
       fetchOptions,
@@ -213,18 +253,16 @@ export abstract class ApiService<
    * const data = await api.delete('/some-endpoint', { pathParams: { id: '123' } });
    * ```
    */
-  async delete<Path extends Endpoint<{ method: 'DELETE' }>['path']>(
+  async delete<Path extends Extract<Endpoints, { method: 'DELETE' }>['path']>(
     url: Path,
     options?: MethodFetchOptionType<
       Extract<Endpoints, { method: 'DELETE'; path: Path }>
     >,
     fetchOptions?: Partial<OptionType>,
   ): Promise<Extract<Endpoints, { method: 'DELETE'; path: Path }>['response']> {
-    return this.fetch<Extract<Endpoints, { method: 'DELETE'; path: Path }>>(
-      url,
-      this.methodToFetchOptions({ ...options }, 'DELETE'),
-      fetchOptions,
-    );
+    return await this.fetch<
+      Extract<Endpoints, { method: 'DELETE'; path: Path }>
+    >(url, this.methodToFetchOptions({ ...options }, 'DELETE'), fetchOptions);
   }
 
   /**
@@ -243,7 +281,7 @@ export abstract class ApiService<
     >,
     fetchOptions?: Partial<OptionType>,
   ): Promise<Extract<Endpoints, { method: 'HEAD'; path: Path }>['response']> {
-    return this.fetch<Extract<Endpoints, { method: 'HEAD'; path: Path }>>(
+    return await this.fetch<Extract<Endpoints, { method: 'HEAD'; path: Path }>>(
       url,
       this.methodToFetchOptions({ ...options }, 'HEAD'),
       fetchOptions,
@@ -259,9 +297,9 @@ export abstract class ApiService<
     return resolved;
   }
 
-  private resolvePathParams<Path extends string>(
-    url: Path,
-    pathParams: PathParams<Path> | unknown,
+  private resolvePathParams<E extends Endpoints>(
+    url: E['path'],
+    pathParams: E['pathParams'],
   ): string {
     let resolvedUrl: string = url;
     if (!pathParams) {
@@ -276,10 +314,7 @@ export abstract class ApiService<
     return resolvedUrl;
   }
 
-  private resolveSearchParams(
-    url: string,
-    query: UnknownObject | unknown,
-  ): string {
+  private resolveSearchParams(url: string, query: unknown): string {
     if (!query || Object.keys(query).length === 0) {
       return url;
     }
@@ -296,27 +331,24 @@ export abstract class ApiService<
     return urlObj.pathname;
   }
 
-  private resolveUrl<Path extends string>(
-    url: Path,
-    pathParams: PathParams<Path> | unknown,
-    query: UnknownObject | unknown,
+  private resolveUrl<E extends Endpoints>(
+    url: E['path'],
+    pathParams: E['pathParams'],
+    query: E['query'],
   ): string {
     const urlWithPathParams = this.resolvePathParams(url, pathParams);
     return this.resolveSearchParams(urlWithPathParams, query);
   }
 
-  private methodToFetchOptions<
-    E extends Endpoint<{ method: Method }>,
-    Method extends HttpMethod,
-  >(
+  private methodToFetchOptions<E extends Endpoints>(
     methodFetchOptions: MethodFetchOptionType<E>,
-    method: Method,
+    method: HttpMethod,
   ): FetchOptionType<E> {
     return {
-      body: methodFetchOptions?.body,
-      pathParams: methodFetchOptions?.pathParams,
-      query: methodFetchOptions?.query,
-      method: method,
+      body: methodFetchOptions.body,
+      pathParams: methodFetchOptions.pathParams,
+      query: methodFetchOptions.query,
+      method,
     };
   }
 }
@@ -329,7 +361,7 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
 /**
  * The type of the request body, either an object, undefined (no body), or never (no body allowed).
  */
-export type Body = UnknownObject | never | undefined;
+export type Body = Record<string, unknown> | never | undefined;
 
 // an intersection of parameter objects based on `:${param}`s in the path, or {} if none
 type PathParamsRec<Path extends string> =
@@ -343,9 +375,9 @@ type PathParams<Path extends string> =
   // here we clean out that {} case, substituting never
   PathParamsRec<Path> extends infer O
     ? WithoutEmptyObject<O> extends never
-      ? never
+      ? unknown
       : O
-    : never;
+    : unknown;
 
 /**
  * Internal base interface representing the structure of an API endpoint.
@@ -354,7 +386,7 @@ interface BaseEndpoint<
   Method extends HttpMethod,
   ResponseData,
   BodyData extends Body,
-  SearchParams extends UnknownObject,
+  SearchParams extends Record<string, unknown>,
   Path extends string,
 > {
   path: Path;
@@ -364,6 +396,33 @@ interface BaseEndpoint<
   response: ResponseData;
   body: BodyData;
 }
+
+type BaseEndpointWithOptionals = Omit<
+  BaseEndpoint<HttpMethod, unknown, Body, Record<string, unknown>, string>,
+  'pathParams' | 'query' | 'body'
+> & {
+  pathParams?: BaseEndpoint<
+    HttpMethod,
+    unknown,
+    Body,
+    Record<string, unknown>,
+    string
+  >['pathParams'];
+  query?: BaseEndpoint<
+    HttpMethod,
+    unknown,
+    Body,
+    Record<string, unknown>,
+    string
+  >['query'];
+  body?: BaseEndpoint<
+    HttpMethod,
+    unknown,
+    Body,
+    Record<string, unknown>,
+    string
+  >['body'];
+};
 
 /**
  * A type representing an API endpoint with method, path, request body, path parameters, query parameters, and response type.
@@ -380,22 +439,20 @@ interface BaseEndpoint<
  * ```
  */
 export interface Endpoint<
-  T extends Partial<
-    BaseEndpoint<HttpMethod, unknown, Body, UnknownObject, string>
-  >,
+  T extends BaseEndpointWithOptionals = BaseEndpointWithOptionals,
 > {
-  method: T['method'] & HttpMethod;
-  path: T['path'] & string;
+  method: T['method'];
+  path: T['path'];
   response: T['response'];
-  body: T['body'];
-  pathParams: T['pathParams'];
+  body: T['body'] & Body;
+  pathParams: PathParams<T['path']> & T['pathParams'];
   query: T['query'];
 }
 
 /**
  * Passable options to the fetch method of ApiService, derived from the endpoint type.
  */
-export type FetchOptionType<E extends Endpoint<{}>> = Pick<
+export type FetchOptionType<E extends Endpoint> = Pick<
   E,
   'pathParams' | 'query' | 'body' | 'method'
 >;
@@ -403,7 +460,7 @@ export type FetchOptionType<E extends Endpoint<{}>> = Pick<
 /**
  * Passable options to the method-specific fetch methods of ApiService, derived from the endpoint type.
  */
-type MethodFetchOptionType<E extends Endpoint<{}>> = Partial<
+type MethodFetchOptionType<E extends Endpoint> = Partial<
   Omit<FetchOptionType<E>, 'method'>
 >;
 

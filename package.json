@@ -18,26 +18,29 @@
     "build": "tsc",
     "build:examples": "pnpm --filter @indulgent/examples-* run build",
     "build:indulgent": "pnpm --filter indulgent run build",
-    "docs": "pnpm --filter indulgent docs"
+    "docs": "typedoc"
   },
   "keywords": [],
   "author": "frodi <frodikarlsson@gmail.com>",
   "license": "ISC",
   "packageManager": "pnpm@10.17.0",
   "devDependencies": {
-    "@types/node": "^24.5.2",
-    "happy-dom": "^18.0.1",
-    "oxlint": "^1.16.0",
-    "prettier": "^3.6.2",
-    "typedoc": "^0.28.13",
-    "typedoc-github-theme": "^0.3.1",
-    "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "@types/node": "^24",
+    "happy-dom": "^18",
+    "oxlint": "^1",
+    "prettier": "^3",
+    "typedoc": "^0",
+    "typedoc-github-theme": "^0",
+    "typescript": "^5",
+    "vitest": "^3"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
-    ]
+    ],
+    "patchedDependencies": {
+      "typedoc": "patches/typedoc.patch"
+    }
   },
   "engines": {
     "node": ">=22"
