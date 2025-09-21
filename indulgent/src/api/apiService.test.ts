@@ -1,6 +1,5 @@
 import { ApiService, type Endpoint, type GenericFetcher } from './apiService';
 import { describe, expect, test, vi } from 'vitest';
-import type { UnknownObject } from '../types/object';
 
 describe('ApiService', () => {
   describe('get method with query parameters', () => {
@@ -217,60 +216,116 @@ describe('ApiService', () => {
       },
     );
   });
-});
 
-describe('With path parameters', () => {
-  type TestEndpointWithPathParams = Endpoint<{
-    method: 'GET';
-    path: '/test-endpoint/:id/details/:detailId';
-    query?: { verbose?: boolean };
-    response: UnknownObject;
-  }>;
+  describe('With path parameters', () => {
+    type TestEndpointWithPathParams = Endpoint<{
+      method: 'GET';
+      path: '/test-endpoint/:id/details/:detailId';
+      query?: { verbose?: boolean };
+      response: unknown;
+    }>;
 
-  const testCasesGetWithPathParams: {
-    pathParams: { id: string; detailId: string };
-    query?: { verbose?: boolean };
-    expectedUrl: string;
-    description: string;
-  }[] = [
-    {
-      description: 'with path params, no query params',
-      pathParams: { id: '123', detailId: '456' },
-      query: undefined,
-      expectedUrl: '/test-endpoint/123/details/456',
-    },
-    {
-      description: 'with path params and query params',
-      pathParams: { id: '123', detailId: '456' },
-      query: { verbose: true },
-      expectedUrl: '/test-endpoint/123/details/456?verbose=true',
-    },
-  ];
-  const mockFetcher = createMockFetcher();
+    const testCasesGetWithPathParams: {
+      pathParams: { id: string; detailId: string };
+      query?: { verbose?: boolean };
+      expectedUrl: string;
+      description: string;
+    }[] = [
+      {
+        description: 'with path params, no query params',
+        pathParams: { id: '123', detailId: '456' },
+        query: undefined,
+        expectedUrl: '/test-endpoint/123/details/456',
+      },
+      {
+        description: 'with path params and query params',
+        pathParams: { id: '123', detailId: '456' },
+        query: { verbose: true },
+        expectedUrl: '/test-endpoint/123/details/456?verbose=true',
+      },
+    ];
+    const mockFetcher = createMockFetcher();
 
-  class TestApiService extends ApiService<TestEndpointWithPathParams> {}
-  const apiService = new TestApiService({
-    fetcher: mockFetcher,
+    class TestApiService extends ApiService<TestEndpointWithPathParams> {}
+    const apiService = new TestApiService({
+      fetcher: mockFetcher,
+    });
+
+    test.each(testCasesGetWithPathParams)(
+      'should call fetcher $description with correct parameters',
+      async (testCase) => {
+        const { pathParams, query, expectedUrl } = testCase;
+
+        await apiService.get('/test-endpoint/:id/details/:detailId', {
+          pathParams,
+          query,
+        });
+
+        expect(mockFetcher.fetch).toHaveBeenCalledWith(
+          expectedUrl,
+          'GET',
+          undefined,
+          {},
+        );
+      },
+    );
   });
 
-  test.each(testCasesGetWithPathParams)(
-    'should call fetcher $description with correct parameters',
-    async (testCase) => {
-      const { pathParams, query, expectedUrl } = testCase;
+  describe('try', () => {
+    type TestEndpointWithPathParams = Endpoint<{
+      method: 'GET';
+      path: '/test-endpoint/:id/details/:detailId';
+      query?: { verbose?: boolean };
+      response: { data: string };
+    }>;
+    const mockFetcher = createMockFetcher();
+    class TestApiService extends ApiService<TestEndpointWithPathParams> {}
+    const apiService = new TestApiService({
+      fetcher: mockFetcher,
+    });
 
-      await apiService.get('/test-endpoint/:id/details/:detailId', {
-        pathParams,
-        query,
-      });
+    test('should return response on success', async () => {
+      const mockResponse = { data: 'test' };
+      vi.spyOn(mockFetcher, 'fetch').mockResolvedValue(mockResponse);
 
+      const result = await apiService.try('GET')(
+        '/test-endpoint/:id/details/:detailId',
+        {
+          pathParams: { id: '123', detailId: '456' },
+          query: { verbose: true },
+        },
+      );
+
+      expect(result).toEqual([null, mockResponse]);
       expect(mockFetcher.fetch).toHaveBeenCalledWith(
-        expectedUrl,
+        '/test-endpoint/123/details/456?verbose=true',
         'GET',
         undefined,
         {},
       );
-    },
-  );
+    });
+
+    test('should return error on failure', async () => {
+      const mockError = new Error('Network error');
+      vi.spyOn(mockFetcher, 'fetch').mockRejectedValue(mockError);
+
+      const result = await apiService.try('GET')(
+        '/test-endpoint/:id/details/:detailId',
+        {
+          pathParams: { id: '123', detailId: '456' },
+          query: { verbose: true },
+        },
+      );
+
+      expect(result).toEqual([mockError, null]);
+      expect(mockFetcher.fetch).toHaveBeenCalledWith(
+        '/test-endpoint/123/details/456?verbose=true',
+        'GET',
+        undefined,
+        {},
+      );
+    });
+  });
 });
 
 function createMockFetcher(): GenericFetcher {
