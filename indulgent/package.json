@@ -1,11 +1,15 @@
 {
   "name": "indulgent",
-  "version": "0.0.1-alpha.2",
+  "version": "0.0.1-alpha.3",
   "licenses": [
     {
       "type": "ISC"
     }
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frodi/indulgent.git"
+  },
   "scripts": {
     "build": "tsc"
   },
