@@ -111,6 +111,19 @@ export abstract class ApiService<
     );
   }
 
+  /**
+   * Tries to call a method on the API service and returns a tuple of [error, response].
+   *
+   * @example
+   * ```ts
+   * const [error, data] = await api.try<ErrorType>('GET')('/some-endpoint', { pathParams: { id: '123' }, query: { q: 'search' } });
+   * if (error) {
+   *   // handle error
+   * } else {
+   *   // use data
+   * }
+   * ```
+   */
   try<ErrorType extends Error, Method extends HttpMethod>(
     method: Method,
   ): <Path extends Extract<Endpoints, { method: Method }>['path']>(
