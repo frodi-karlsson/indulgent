@@ -217,7 +217,7 @@ describe('ApiService', () => {
     );
   });
 
-  describe('With path parameters', () => {
+  describe('get method with path parameters', () => {
     type TestEndpointWithPathParams = Endpoint<{
       method: 'GET';
       path: '/test-endpoint/:id/details/:detailId';
@@ -269,6 +269,98 @@ describe('ApiService', () => {
         );
       },
     );
+  });
+
+  describe('constructor parameters', () => {
+    type TestEndpoint = Endpoint<{
+      method: 'GET';
+      path: '/test-endpoint/:id/details/:detailId';
+      query?: { verbose?: boolean };
+      response: unknown;
+    }>;
+
+    const mockFetcher = createMockFetcher();
+    class TestApiService extends ApiService<TestEndpoint> {}
+    const baseUrl = 'https://api.example.com/v1';
+    const apiService = new TestApiService({
+      fetcher: mockFetcher,
+      baseUrl,
+    });
+
+    test('should prepend baseUrl to request URL', async () => {
+      const pathParams = { id: '123', detailId: '456' };
+      const query = { verbose: true };
+      const expectedUrl =
+        'https://api.example.com/v1/test-endpoint/123/details/456?verbose=true';
+
+      await apiService.get('/test-endpoint/:id/details/:detailId', {
+        pathParams,
+        query,
+      });
+
+      expect(mockFetcher.fetch).toHaveBeenCalledWith(
+        expectedUrl,
+        'GET',
+        undefined,
+        {},
+      );
+    });
+
+    test('should handle trailing slash in baseUrl', async () => {
+      const apiServiceWithSlash = new TestApiService({
+        fetcher: mockFetcher,
+        baseUrl: 'https://api.example.com/v1/',
+      });
+      const pathParams = { id: '123', detailId: '456' };
+      const query = { verbose: true };
+      const expectedUrl =
+        'https://api.example.com/v1/test-endpoint/123/details/456?verbose=true';
+
+      await apiServiceWithSlash.get('/test-endpoint/:id/details/:detailId', {
+        pathParams,
+        query,
+      });
+
+      expect(mockFetcher.fetch).toHaveBeenCalledWith(
+        expectedUrl,
+        'GET',
+        undefined,
+        {},
+      );
+    });
+
+    test('should throw on invalid baseUrl', async () => {
+      expect(
+        () =>
+          new TestApiService({
+            fetcher: mockFetcher,
+            baseUrl: 'ht!tp://invalid-url',
+          }),
+      ).toThrow();
+    });
+
+    test('should pass default options to fetcher', async () => {
+      const defaultOptions = { headers: { Authorization: 'Bearer token' } };
+      const apiServiceWithDefaults = new TestApiService({
+        fetcher: mockFetcher,
+        defaultOptions,
+      });
+      const pathParams = { id: '123', detailId: '456' };
+      const query = { verbose: true };
+      const expectedUrl = '/test-endpoint/123/details/456?verbose=true';
+
+      await apiServiceWithDefaults.get('/test-endpoint/:id/details/:detailId', {
+        pathParams,
+        query,
+      });
+
+      expect(mockFetcher.fetch).toHaveBeenCalledWith(
+        expectedUrl,
+        'GET',
+        undefined,
+        defaultOptions,
+      );
+    });
   });
 
   describe('try', () => {

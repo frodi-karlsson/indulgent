@@ -22,20 +22,8 @@ type AliveEndpoint = Endpoint<{
 
 class WeatherApi extends ApiService<WeatherEndpoint | AliveEndpoint> {}
 
-const baseUrl = 'https://api.example.com';
 const weatherApi = new WeatherApi({
-  fetcher: {
-    fetch: async (url, method, _body, options) => {
-      const response = await fetch(`${baseUrl}${url}`, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options?.headers,
-        },
-      });
-      return response.json();
-    },
-  },
+  baseUrl: 'https://api.example.com',
 });
 
 const londonWeather = await weatherApi.get('/weather', {

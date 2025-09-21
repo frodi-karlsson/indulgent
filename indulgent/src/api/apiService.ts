@@ -6,7 +6,7 @@ import { stringifyIfNotString } from '../util/json';
  * Default fetcher implementation using the Fetch API.
  * It supports JSON responses and throws errors for non-2xx responses.
  *
- * For any reasonable customization, including base URL, you should provide your own fetcher implementation.
+ * If you need extra customization for the fetch calls, you can provide your own implementation of GenericFetcher to the ApiService constructor.
  * @see {@link GenericFetcher}
  */
 export const defaultFetcher: GenericFetcher<RequestInit> = {
@@ -53,7 +53,7 @@ type GetFetchOptionsFromFetcher<T extends GenericFetcher<Record<string, any>>> =
  * type CreateItem = Endpoint<{ method: "POST"; path: "/items"; request: { name: string }; response: { id: string; name: string } }>;
  *
  * class MyApiService extends ApiService<GetItem | CreateItem> {}
- * const api = new MyApiService();
+ * const api = new MyApiService({ baseUrl: "https://api.example.com" });
  *
  * // Making a GET request to /items/123?q=searchterm
  * const item = await api.get("/items/:id", { pathParams: { id: "123" }, query: { q: "searchterm" } });
@@ -74,13 +74,42 @@ export abstract class ApiService<
 {
   private readonly fetcher: GenericFetcher<OptionType>;
   private readonly defaultOptions?: OptionType;
+  private readonly baseUrl?: string;
+  private readonly debug: boolean = false;
+
   constructor(opt?: {
+    /**
+     * If you need capabilities beyond the options passed to the fetch method, you can provide your own fetcher implementation.
+     * @see {@link defaultFetcher} for the default implementation.
+     */
     fetcher?: GenericFetcher<OptionType>;
+    /**
+     * Default options to be merged with options passed to each fetch call.
+     * Useful for setting default headers, credentials, etc.
+     */
     defaultOptions?: OptionType;
+    /**
+     * Optional base URL to be prepended to all request paths.
+     */
+    baseUrl?: string;
+    /**
+     * Only for debugging purposes, if true, will log additional information to the console.
+     */
+    debug?: boolean;
   }) {
     this.fetcher =
       opt?.fetcher || (defaultFetcher as GenericFetcher<OptionType>);
     this.defaultOptions = opt?.defaultOptions;
+    if (opt?.baseUrl) {
+      // make sure it's a valid URL
+      try {
+        this.baseUrl = new URL(opt.baseUrl).toString();
+      } catch {
+        throw new Error(`Invalid base URL: ${opt.baseUrl}`);
+      }
+    }
+
+    this.debug = opt?.debug || false;
   }
 
   /**
@@ -103,8 +132,23 @@ export abstract class ApiService<
       body = stringifyIfNotString(optionsBody);
     }
 
+    const resolvedUrl = this.resolveUrl(
+      url,
+      options?.['pathParams'],
+      options?.['query'],
+    );
+
+    if (this.debug) {
+      console.log('[ApiService]', {
+        url: resolvedUrl,
+        method: options.method,
+        body,
+        options: resolvedOptions,
+      });
+    }
+
     return await this.fetcher.fetch<E['response']>(
-      this.resolveUrl(url, options?.['pathParams'], options?.['query']),
+      resolvedUrl,
       options.method,
       body,
       resolvedOptions,
@@ -344,13 +388,36 @@ export abstract class ApiService<
     return urlObj.pathname;
   }
 
+  private normalizeBaseUrl(url: string): string {
+    if (url.endsWith('/')) {
+      return url.slice(0, -1);
+    }
+    return url;
+  }
+
+  private normalizePath(url: string): string {
+    if (!url.startsWith('/')) {
+      return `/${url}`;
+    }
+    return url;
+  }
+
   private resolveUrl<E extends Endpoints>(
     url: E['path'],
     pathParams: E['pathParams'],
     query: E['query'],
   ): string {
     const urlWithPathParams = this.resolvePathParams(url, pathParams);
-    return this.resolveSearchParams(urlWithPathParams, query);
+    const path = this.resolveSearchParams(urlWithPathParams, query);
+    const normalizedPath = this.normalizePath(path);
+
+    if (this.baseUrl) {
+      const normalizedBaseUrl = this.normalizeBaseUrl(this.baseUrl);
+      const resolvedUrl = `${normalizedBaseUrl}${normalizedPath}`;
+      return resolvedUrl;
+    }
+
+    return normalizedPath;
   }
 
   private methodToFetchOptions<E extends Endpoints>(
