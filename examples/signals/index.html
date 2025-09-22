@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Indulgent Signals Example</title>
+    <script type="module">
+      import { storeSignal, effect, computed } from '/scripts/signal.js';
+      const count = storeSignal('indulgent-examples-signals', 0);
+      const multiplier = storeSignal('indulgent-examples-multiplier', 2);
+
+      const countEl = document.getElementById('count');
+      const multipliedEl = document.getElementById('multiplied');
+
+      const incrementer = document.getElementById('increment');
+      const multiplierInput = document.getElementById('multiplier');
+      const resetButton = document.getElementById('reset');
+
+      effect(() => {
+        countEl.textContent = String(`Count: ${count.get()}`);
+      });
+
+      const multiplied = computed(() => count.get() * multiplier.get());
+
+      effect(() => {
+        multipliedEl.textContent = String(`Multiplied: ${multiplied.get()}`);
+        multiplierInput.value = String(multiplier.get());
+      });
+
+      incrementer.addEventListener('click', () => {
+        count.update((n) => n + 1);
+      });
+
+      multiplierInput.addEventListener('input', (e) => {
+        const input = e.target;
+        multiplier.set(Number(input.value));
+      });
+
+      resetButton.addEventListener('click', () => {
+        count.set(0);
+        multiplier.set(2);
+      });
+    </script>
+  </head>
+  <body>
+    <h1>Indulgent Signals Example</h1>
+    <span id="count">Count: 0</span>
+    <button id="increment">Increment</button>
+    <br />
+    <input type="number" id="multiplier" value="2" />
+    <span id="multiplied">Multiplied: 0</span>
+    <br />
+    <button id="reset">Reset</button>
+  </body>
+</html>

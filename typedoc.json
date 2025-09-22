@@ -2,7 +2,7 @@
   "$schema": "https://typedoc.org/schema.json",
   "includeVersion": true,
   "entryPointStrategy": "packages",
-  "entryPoints": ["indulgent"],
+  "entryPoints": ["indulgent", "framework"],
   "packageOptions": {
     "entryPoints": ["src/**/index.ts"]
   },

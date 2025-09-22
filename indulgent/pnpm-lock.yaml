@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      docs:
-        specifier: 0.3.2-canary.0
-        version: 0.3.2-canary.0
     devDependencies:
       '@types/node':
         specifier: ^24.5.2

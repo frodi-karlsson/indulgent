@@ -28,6 +28,7 @@
     "no-explicit-any": "off",
     "no-null": "off",
     "max-params": ["error", 5],
-    "id-length": "off"
+    "id-length": "off",
+    "no-empty-interface": "off"
   }
 }
