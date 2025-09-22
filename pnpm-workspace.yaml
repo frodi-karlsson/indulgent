@@ -1,4 +1,5 @@
 packages:
   - 'indulgent'
   - 'examples/*'
+  - 'framework'
 link-workspace-packages: true

@@ -2,13 +2,14 @@ import { ApiService, type Endpoint } from 'indulgent/api';
 
 type WeatherEndpoint = Endpoint<{
   method: 'GET';
-  path: '/weather';
+  path: '/weather/:country/:city';
   query: {
-    city: string;
+    includeTime?: boolean;
   };
   response: {
     temperature: number;
     description: string;
+    time?: string;
   };
 }>;
 
@@ -26,9 +27,11 @@ const weatherApi = new WeatherApi({
   baseUrl: 'https://api.example.com',
 });
 
-const londonWeather = await weatherApi.get('/weather', {
-  query: { city: 'London' },
+const londonWeather = await weatherApi.get('/weather/:country/:city', {
+  query: { includeTime: true },
+  pathParams: { city: '', country: '' },
 });
+
 console.log(
   `London Weather: ${londonWeather.temperature}°C, ${londonWeather.description}`,
 );

@@ -39,6 +39,12 @@ importers:
         specifier: workspace:^0
         version: link:../../indulgent
 
+  examples/signals:
+    dependencies:
+      indulgent:
+        specifier: workspace:^0
+        version: link:../../indulgent
+
   indulgent: {}
 
 packages:
