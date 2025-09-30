@@ -4,3 +4,4 @@ dist
 .modules.yaml
 indulgent-*.tgz
 .DS_Store
+.npmrc
