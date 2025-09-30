@@ -10,7 +10,7 @@
   "packageManager": "pnpm@10.17.0",
   "dependencies": {
     "indulgent": "workspace:^0",
-    "@indulgent/dom": "workspace:^0"
+    "indulgent-dom": "workspace:^0"
   },
   "devDependencies": {
     "vite": "^7.1.7"

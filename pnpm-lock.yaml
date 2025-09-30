@@ -51,7 +51,7 @@ importers:
 
   examples/bindings:
     dependencies:
-      '@indulgent/dom':
+      'indulgent-dom':
         specifier: workspace:^0
         version: link:../../dom
       indulgent:
