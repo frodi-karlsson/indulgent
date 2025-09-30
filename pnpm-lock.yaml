@@ -51,12 +51,12 @@ importers:
 
   examples/bindings:
     dependencies:
-      'indulgent-dom':
-        specifier: workspace:^0
-        version: link:../../dom
       indulgent:
         specifier: workspace:^0
         version: link:../../indulgent
+      indulgent-dom:
+        specifier: workspace:^0
+        version: link:../../dom
     devDependencies:
       vite:
         specifier: ^7.1.7
