@@ -18,6 +18,7 @@
     "build": "tsc",
     "build:examples": "pnpm --filter @indulgent/examples-* run build",
     "build:indulgent": "pnpm --filter indulgent run build",
+    "build:dom": "pnpm --filter @indulgent/dom run build",
     "docs": "typedoc"
   },
   "keywords": [],
