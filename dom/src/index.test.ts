@@ -209,4 +209,98 @@ describe('initIndulgent', () => {
       expect(ctx.valueSignal.get()).toBe('User Input');
     });
   });
+
+  describe('multiple calls to initIndulgent', () => {
+    test('should handle multiple calls to initIndulgent on the same root', async () => {
+      document.body.innerHTML = `
+        <div>
+          <input id="input1" type="text" obind:value="signal1" />
+          <input id="input2" type="text" obind:value="signal2" />
+        </div>
+      `;
+
+      const input1 = document.getElementById('input1') as HTMLInputElement;
+      const input2 = document.getElementById('input2') as HTMLInputElement;
+      const ctx1 = {
+        signal1: createSignal('Value 1'),
+      };
+      const ctx2 = {
+        signal2: createSignal('Value 2'),
+      };
+
+      initIndulgent(ctx1, { root: document.body, debug: true });
+      initIndulgent(ctx2, { root: document.body, debug: true });
+
+      expect(input1.value).toBe('Value 1');
+      expect(input2.value).toBe('Value 2');
+
+      ctx1.signal1.set('Updated Value 1');
+      ctx2.signal2.set('Updated Value 2');
+      await vi.runAllTimersAsync();
+
+      expect(input1.value).toBe('Updated Value 1');
+      expect(input2.value).toBe('Updated Value 2');
+    });
+
+    test('should not re-initialize bindings on subsequent calls to initIndulgent with same root', async () => {
+      const consoleLogSpy = vi
+        .spyOn(console, 'log')
+        .mockImplementation(() => {});
+
+      document.body.innerHTML = `
+        <div>
+          <input id="input" type="text" obind:value="mySignal" />
+        </div>
+      `;
+      const input = document.getElementById('input') as HTMLInputElement;
+      const ctx = {
+        mySignal: createSignal('Initial Value'),
+      };
+
+      initIndulgent(ctx, { root: document.body, debug: true });
+      expect(input.value).toBe('Initial Value');
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        '[indulgent]',
+        'Setting up output binding for property "value" and signal "mySignal"',
+        input,
+      );
+
+      consoleLogSpy.mockClear();
+
+      // Second call with same root
+      initIndulgent(ctx, { root: document.body, debug: true });
+      expect(input.value).toBe('Initial Value');
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+
+      consoleLogSpy.mockRestore();
+    });
+
+    test('should initialize bindings for new root elements', async () => {
+      document.body.innerHTML = `
+        <div id="root1">
+          <input id="input1" type="text" obind:value="signal1" />
+        </div>
+        <div id="root2">
+          <input id="input2" type="text" obind:value="signal2" />
+        </div>
+      `;
+
+      const root1 = document.getElementById('root1') as HTMLDivElement;
+      const root2 = document.getElementById('root2') as HTMLDivElement;
+      const input1 = document.getElementById('input1') as HTMLInputElement;
+      const input2 = document.getElementById('input2') as HTMLInputElement;
+      const ctx1 = {
+        signal1: createSignal('Value 1'),
+      };
+      const ctx2 = {
+        signal2: createSignal('Value 2'),
+      };
+
+      initIndulgent(ctx1, { root: root1, debug: true });
+      expect(input1.value).toBe('Value 1');
+
+      initIndulgent(ctx2, { root: root2, debug: true });
+      expect(input2.value).toBe('Value 2');
+    });
+  });
 });

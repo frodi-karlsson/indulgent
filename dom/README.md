@@ -22,6 +22,9 @@ const name = createSignal('World');
 const address = createSignal('Earth');
 
 initIndulgent({ address, name });
+// initIndulgent can be called multiple times
+// in case you want to do it per-fragment or
+// something along those lines
 ```
 
 ```html

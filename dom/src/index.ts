@@ -72,6 +72,7 @@ function createBindings(
       return;
     }
 
+    let didAddBinding = false;
     bindings.forEach((binding) => {
       const [bindingType, unparsedProperty] = binding.split(':');
       const property = toProperty(unparsedProperty);
@@ -140,11 +141,20 @@ function createBindings(
           }
         }
       }
+      didAddBinding = true;
     });
+
+    if (!didAddBinding) {
+      return;
+    }
+
     const id = ++globalThis.__indulgentData.currentId;
     el.setAttribute('data-indulgent-id', id.toString());
   });
 }
+
+const globalCtx: Record<string, Signal<any>> = {};
+const roots = new Set<HTMLElement>();
 
 /**
  * Initializes Indulgent DOM bindings.
@@ -186,30 +196,34 @@ export function initIndulgent(
   opts?: { debug?: boolean; root?: HTMLElement },
 ): void {
   const { root = document.body } = opts || {};
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (mutation.type === 'childList') {
-        const asArr: HTMLElement[] = [];
-        mutation.addedNodes.forEach((node) => {
-          if (node instanceof HTMLElement) {
-            asArr.push(node);
-          }
-        });
-        createBindings(asArr, ctx, opts);
-      }
+  Object.assign(globalCtx, ctx);
+  const didFirstInit = roots.has(root);
+  if (!didFirstInit) {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'childList') {
+          const asArr: HTMLElement[] = [];
+          mutation.addedNodes.forEach((node) => {
+            if (node instanceof HTMLElement) {
+              asArr.push(node);
+            }
+          });
+          createBindings(asArr, globalCtx, opts);
+        }
+      });
     });
-  });
 
-  observer.observe(root, { childList: true, subtree: true });
+    observer.observe(root, { childList: true, subtree: true });
+    roots.add(root);
+  }
 
-  // Initial scan
   const nodeList = root.querySelectorAll<HTMLElement>('*');
   // oxlint-disable-next-line prefer-spread
   const nodeArray = Array.from(nodeList);
   const initialElements = nodeArray.filter(
     (el) => !el.hasAttribute('data-indulgent-id'),
   );
-  createBindings(initialElements, ctx, opts);
+  createBindings(initialElements, globalCtx, opts);
 }
 
 if (typeof globalThis !== 'undefined') {

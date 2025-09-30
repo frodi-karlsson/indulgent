@@ -1,6 +1,6 @@
 {
   "name": "@indulgent/examples-framework",
-  "version": "0.0.1-alpha.8",
+  "version": "0.0.1",
   "description": "",
   "private": true,
   "main": "index.js",
