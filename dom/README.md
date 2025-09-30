@@ -1,8 +1,8 @@
-# @indulgent/dom
+# indulgent-dom
 
 An extremely lightweight DOM binding library for [indulgent](https://frodi-karlsson.github.io/indulgent/) signals. No syntax that can't be rendered in plain HTML, no virtual DOM, no frameworks.
 
-Can either be used as a module, with a bundler, or directly in the browser with a script tag, e.g `<script src="https://unpkg.com/@indulgent/dom/dist/index.cdn.js"></script>`.
+Can either be used as a module, with a bundler, or directly in the browser with a script tag, e.g `<script src="https://unpkg.com/indulgent-dom/dist/index.cdn.js"></script>`.
 
 See more details in the docs.
 
@@ -16,7 +16,7 @@ Bind indulgent signals to DOM elements using custom attributes.
 
 ```ts
 import { createSignal } from 'indulgent/signal';
-import { initIndulgent } from '@indulgent/dom';
+import { initIndulgent } from 'indulgent-dom';
 
 const name = createSignal('World');
 const address = createSignal('Earth');
