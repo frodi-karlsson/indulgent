@@ -1,6 +1,6 @@
 {
   "name": "@indulgent/examples-api",
-  "version": "1.0.0",
+  "version": "0.0.1-alpha.8",
   "description": "",
   "private": true,
   "main": "index.js",

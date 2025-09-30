@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { stringifyIfNotString } from './json';
+import { stringifyIfNotString } from './json.js';
 
 describe('JSON utilities', () => {
   describe('stringifyIfNotString', () => {

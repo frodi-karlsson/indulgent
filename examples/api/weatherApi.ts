@@ -27,14 +27,20 @@ const weatherApi = new WeatherApi({
   baseUrl: 'https://api.example.com',
 });
 
-const londonWeather = await weatherApi.get('/weather/:country/:city', {
-  query: { includeTime: true },
-  pathParams: { city: '', country: '' },
+async function main(): Promise<void> {
+  const londonWeather = await weatherApi.get('/weather/:country/:city', {
+    query: { includeTime: true },
+    pathParams: { city: '', country: '' },
+  });
+
+  console.log(
+    `London Weather: ${londonWeather.temperature}°C, ${londonWeather.description}`,
+  );
+
+  const { status } = await weatherApi.get('/alive');
+  console.log(`API Status: ${status}`);
+}
+
+main().catch((error) => {
+  console.error('Error fetching weather data:', error);
 });
-
-console.log(
-  `London Weather: ${londonWeather.temperature}°C, ${londonWeather.description}`,
-);
-
-const { status } = await weatherApi.get('/alive');
-console.log(`API Status: ${status}`);

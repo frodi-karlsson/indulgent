@@ -1,6 +1,6 @@
 {
   "name": "indulgent",
-  "version": "0.0.1-alpha.7",
+  "version": "0.0.1-alpha.8",
   "licenses": [
     {
       "type": "ISC"
@@ -18,7 +18,8 @@
     "./util": "./dist/util/index.js",
     "./api": "./dist/api/index.js",
     "./signal": "./dist/signal/index.js",
-    "./types": "./dist/types/index.js"
+    "./types": "./dist/types/index.js",
+    "./*": "./dist/*"
   },
   "description": "",
   "main": "index.js",

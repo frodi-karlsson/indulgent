@@ -1,4 +1,4 @@
-import { isObject } from './typeAssertions';
+import { isObject } from './typeAssertions.js';
 
 export function deepMerge<T>(target: unknown, source: unknown): T {
   if (!isObject(target)) {

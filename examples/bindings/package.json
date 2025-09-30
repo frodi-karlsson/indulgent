@@ -1,0 +1,18 @@
+{
+  "name": "@indulgent/examples-framework",
+  "version": "0.0.1-alpha.8",
+  "description": "",
+  "private": true,
+  "main": "index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.17.0",
+  "dependencies": {
+    "indulgent": "workspace:^0",
+    "@indulgent/dom": "workspace:^0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.7"
+  }
+}
