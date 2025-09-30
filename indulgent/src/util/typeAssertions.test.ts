@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { isObject } from './typeAssertions';
+import { isObject } from './typeAssertions.js';
 
 describe('typeAssertions', () => {
   describe('isObject', () => {

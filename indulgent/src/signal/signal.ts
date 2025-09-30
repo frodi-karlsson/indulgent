@@ -1,7 +1,7 @@
 /**
  * A reactive signal that holds a value of type T and allows for dependency tracking and updates.
  */
-interface Signal<T> {
+export interface Signal<T> {
   /**
    * Optional cleanup function to be called when the signal is no longer needed.
    */
@@ -29,7 +29,7 @@ interface Signal<T> {
   unregisterAllDependencies: () => void;
 }
 
-interface ReadOnlySignal<T> extends Omit<Signal<T>, 'set' | 'update'> {}
+export interface ReadOnlySignal<T> extends Omit<Signal<T>, 'set' | 'update'> {}
 type CleanupFn = () => void;
 
 const signalUpdates = new Map<string, () => void>();
@@ -91,6 +91,8 @@ export function createSignal<T>(
   }
 
   const signal: Signal<T | undefined> = {
+    // @ts-expect-error --- Secret variable for internal use
+    __isSignal: true,
     get: () => {
       allSignalListener?.(signal);
       return value;
@@ -239,4 +241,11 @@ export function computed<T>(cb: () => T): ReadOnlySignal<T> {
 export function effect(cb: () => void): CleanupFn {
   const disposeReaction = createReaction(cb);
   return disposeReaction;
+}
+
+/**
+ * Verifies that the passed object is a signal.
+ */
+export function isSignal(obj: any): obj is Signal<any> {
+  return obj && obj.__isSignal === true;
 }

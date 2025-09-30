@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { deepMerge } from './object';
+import { deepMerge } from './object.js';
 
 describe('Object utilities', () => {
   const testCases: {

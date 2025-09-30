@@ -1,4 +1,8 @@
-import { ApiService, type Endpoint, type GenericFetcher } from './apiService';
+import {
+  ApiService,
+  type Endpoint,
+  type GenericFetcher,
+} from './apiService.js';
 import { describe, expect, test, vi } from 'vitest';
 
 describe('ApiService', () => {

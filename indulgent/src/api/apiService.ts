@@ -1,6 +1,6 @@
-import type { WithoutEmptyObject } from '../types/util';
-import { deepMerge } from '../util/object';
-import { stringifyIfNotString } from '../util/json';
+import type { WithoutEmptyObject } from '../types/util.js';
+import { deepMerge } from '../util/object.js';
+import { stringifyIfNotString } from '../util/json.js';
 
 /**
  * Default fetcher implementation using the Fetch API.

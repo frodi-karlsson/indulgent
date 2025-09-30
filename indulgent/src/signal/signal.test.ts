@@ -1,5 +1,11 @@
 import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
-import { computed, createSignal, effect, storeSignal } from './signal';
+import {
+  computed,
+  createSignal,
+  effect,
+  isSignal,
+  storeSignal,
+} from './signal.js';
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -282,5 +288,17 @@ describe('effect', () => {
     await vi.runAllTimersAsync();
     expect(mockEffect1).toHaveBeenCalledTimes(2);
     expect(mockEffect2).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('isSignal', () => {
+  test('should return true for a signal', () => {
+    const signal = createSignal(1);
+    expect(isSignal(signal)).toBe(true);
+  });
+
+  test('should return false for a non-signal object', () => {
+    const notASignal = { get: () => 1, set: (_val: number) => {} };
+    expect(isSignal(notASignal)).toBe(false);
   });
 });

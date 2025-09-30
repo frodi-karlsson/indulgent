@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Indulgent Example - as Module</title>
+    <!-- Below would be handled by your build system if you had one. Let's keep it simple for this example. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "@indulgent/dom": "./node_modules/@indulgent/dom/dist/index.js",
+          "indulgent": "./node_modules/indulgent/dist/index.js",
+          "indulgent/signal": "./node_modules/indulgent/dist/signal/index.js",
+          "indulgent/": "./node_modules/indulgent/dist/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <script type="module" src="./scripts/asModule.js"></script>
+    <div>
+      <h1 obind:inner_text="count">&nbsp;</h1>
+      <button id="incrementBtn">Increment</button>
+      <button id="decrementBtn">Decrement</button>
+    </div>
+  </body>
+</html>

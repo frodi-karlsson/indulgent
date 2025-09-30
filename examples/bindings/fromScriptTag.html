@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Indulgent Example</title>
+  </head>
+  <body>
+    <!-- You could use unpkg like https://unpkg.com/@indulgent/dom/dist/index-cdn.js -->
+    <script src="./node_modules/@indulgent/dom/dist/index-cdn.js"></script>
+    <script>
+      var title = indulgent.createSignal('Hello World');
+      indulgent.effect(() => {
+        console.log('Title changed to:', title.get());
+      });
+
+      setTimeout(() => {
+        title.set('Hello Indulgent');
+      }, 2000);
+
+      var input = indulgent.createSignal('Type something...');
+
+      indulgent.effect(() => {
+        console.log('Input changed to:', input.get());
+      });
+
+      indulgent.init({ title, input });
+    </script>
+    <div>
+      <h1 obind:inner_text="title">Loading...</h1>
+      <input type="text" iobind:value="input" />
+      <p>You typed: <span obind:inner_text="input">...</span></p>
+    </div>
+  </body>
+</html>
