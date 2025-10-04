@@ -1,5 +1,6 @@
 import * as indulgent from 'indulgent/index.js';
 import type { ReadSignal, WriteSignal } from 'indulgent/signal';
+import { isObject } from 'indulgent/util';
 
 const logFns = ['log', 'warn', 'error', 'info', 'debug'] as const;
 
@@ -53,11 +54,21 @@ function validateSignal(
 }
 
 function isWriteSignal<T>(signal: any): signal is WriteSignal<T> {
-  return '_writeSignal' in signal && (signal as any)._writeSignal === true;
+  return (
+    signal &&
+    isObject(signal) &&
+    '_writeSignal' in signal &&
+    (signal as any)._writeSignal === true
+  );
 }
 
 function isReadSignal<T>(signal: any): signal is ReadSignal<T> {
-  return '_readSignal' in signal && (signal as any)._readSignal === true;
+  return (
+    signal &&
+    isObject(signal) &&
+    '_readSignal' in signal &&
+    (signal as any)._readSignal === true
+  );
 }
 
 type Logger = {
