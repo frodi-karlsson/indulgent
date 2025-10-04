@@ -1,5 +1,5 @@
 import * as indulgent from 'indulgent/index.js';
-import { type Signal, effect, isSignal } from 'indulgent/signal';
+import type { ReadSignal, WriteSignal } from 'indulgent/signal';
 
 const logFns = ['log', 'warn', 'error', 'info', 'debug'] as const;
 
@@ -9,10 +9,11 @@ const commonPropertyBindings: Record<string, string> = {
   inner_html: 'innerHTML',
 };
 
-const inputBindings: Record<string, [string, (el: HTMLElement) => string]> = {
+const inputBindings: Record<string, [string, (el: HTMLElement) => any]> = {
   value: ['input', (el) => (el as HTMLInputElement).value],
-  checked: ['change', (el) => (el as HTMLInputElement).checked.toString()],
-  selected: ['change', (el) => (el as HTMLOptionElement).selected.toString()],
+  checked: ['change', (el) => (el as HTMLInputElement).checked],
+  selected: ['change', (el) => (el as HTMLOptionElement).selected],
+  open: ['toggle', (el) => (el as HTMLDetailsElement).open],
 };
 
 function toProperty(bindingName: string): string {
@@ -37,109 +38,148 @@ function toProperty(bindingName: string): string {
     .join('');
 }
 
+function validateSignal(
+  ctx: Record<string, ReadSignal<any> | WriteSignal<any>>,
+  name: string,
+  logger: Logger | undefined,
+): ReadSignal<any> | WriteSignal<any> | undefined {
+  const signal = ctx[name];
+  if (!isReadSignal(signal) && !isWriteSignal(signal)) {
+    console.log(ctx);
+    logger?.warn(`"${name}" is not a signal`);
+    return;
+  }
+  return ctx[name];
+}
+
+function isWriteSignal<T>(signal: any): signal is WriteSignal<T> {
+  return '_writeSignal' in signal && (signal as any)._writeSignal === true;
+}
+
+function isReadSignal<T>(signal: any): signal is ReadSignal<T> {
+  return '_readSignal' in signal && (signal as any)._readSignal === true;
+}
+
+type Logger = {
+  [K in (typeof logFns)[number]]: (...args: any[]) => void;
+};
+
+function setOutBinding(
+  el: HTMLElement,
+  property: string,
+  signal: ReadSignal<any>,
+) {
+  // oxlint-disable-next-line func-style
+  const modifyProperty = (value: any) => {
+    if (property in el) {
+      (el as any)[property] = value;
+    } else {
+      el.setAttribute(property, value);
+    }
+  };
+
+  modifyProperty(signal.get());
+
+  signal.registerDependent(modifyProperty);
+}
+
+function setInBinding(
+  el: HTMLElement,
+  property: string,
+  signal: WriteSignal<any>,
+  logger: Logger | undefined,
+) {
+  const handler = inputBindings[property];
+
+  if (!handler) {
+    logger?.warn(
+      `Input binding for property "${property}" is not supported out of the box. Please set up a custom event listener to update the signal.`,
+      el,
+    );
+    return;
+  }
+
+  const [eventName, inputGetter] = handler;
+  logger?.log(
+    `Input binding on event "${eventName}" for property "${property}" for el ${el}`,
+  );
+  el.addEventListener(eventName, (e) => {
+    const target = e.target as HTMLInputElement;
+    const value = inputGetter(target);
+    signal.set(value);
+  });
+}
+
+function getBindingAttrs(el: HTMLElement): string[] {
+  const attributeArr: string[] = [];
+  // oxlint-disable-next-line prefer-for-of
+  for (let i = 0; i < el.attributes.length; i++) {
+    attributeArr.push(el.attributes[i].name);
+  }
+  return attributeArr.filter((attr) =>
+    ['ibind', 'obind', 'iobind'].some((prefix) =>
+      attr.startsWith(`${prefix}:`),
+    ),
+  );
+}
+
 function createBindings(
   elements: HTMLElement[],
-  ctx: Record<string, Signal<any>>,
-  opts?: { debug?: boolean },
+  ctx: Record<string, ReadSignal<any> | WriteSignal<any>>,
+  logger: Logger | undefined,
 ) {
-  const { debug = false } = opts || {};
-  const logger = Object.fromEntries(
-    logFns.map((fn) => [
-      fn,
-      (...args: any[]) => {
-        if (debug) {
-          console[fn]('[indulgent]', ...args);
-        }
-      },
-    ]),
-  );
   elements.forEach((el) => {
     if (el.hasAttribute('data-indulgent-id')) {
       return;
     }
 
-    const attributeArr: string[] = [];
-    // oxlint-disable-next-line prefer-for-of
-    for (let i = 0; i < el.attributes.length; i++) {
-      attributeArr.push(el.attributes[i].name);
-    }
-    const bindings = attributeArr.filter((attr) =>
-      ['ibind', 'obind', 'iobind'].some((prefix) =>
-        attr.startsWith(`${prefix}:`),
-      ),
-    );
-    if (!bindings.length) {
-      return;
-    }
-
+    const bindings = getBindingAttrs(el);
     let didAddBinding = false;
     bindings.forEach((binding) => {
       const [bindingType, unparsedProperty] = binding.split(':');
       const property = toProperty(unparsedProperty);
       const signalName = el.getAttribute(binding);
       if (!signalName) {
-        if (debug) {
-          logger.warn(
-            `Element has empty binding for property "${property}"`,
-            el,
-          );
-        }
+        logger?.warn(
+          `Element has empty binding for property "${property}"`,
+          el,
+        );
         return;
       }
 
-      if (!(signalName in ctx)) {
-        logger.warn(`Signal "${signalName}" is not defined in context`);
+      const signal = validateSignal(ctx, signalName, logger);
+      if (!signal) {
         return;
       }
 
-      if (!isSignal(ctx[signalName])) {
-        logger.warn(`"${signalName}" is not a signal`, ctx[signalName]);
-        return;
-      }
-
-      const signal = ctx[signalName];
       if (['iobind', 'obind'].includes(bindingType)) {
-        if (debug) {
-          logger.log(
-            `Setting up output binding for property "${property}" and signal "${signalName}"`,
+        logger?.log(
+          `Setting up output binding for property "${property}" and signal "${signalName}"`,
+          el,
+        );
+        if (!isReadSignal(signal)) {
+          logger?.warn(
+            `Signal "${signalName}" is not readable, cannot set up output binding for property "${property}"`,
             el,
           );
+          return;
         }
-        effect(() => {
-          logger.log('Updating', {
-            property,
-            value: signal.get(),
-            el,
-          });
-          if (property in el) {
-            (el as any)[property] = signal.get();
-          } else {
-            el.setAttribute(property, signal.get());
-          }
-        });
+        setOutBinding(el, property, signal);
+        didAddBinding = true;
       }
       if (['iobind', 'ibind'].includes(bindingType)) {
-        if (debug) {
-          logger.log(
-            `Setting up input binding for property "${property}" and signal "${signalName}"`,
+        logger?.log(
+          `Setting up input binding for property "${property}" and signal "${signalName}"`,
+          el,
+        );
+        if (!isWriteSignal(signal)) {
+          logger?.warn(
+            `Signal "${signalName}" is not writable, cannot set up input binding for property "${property}"`,
             el,
           );
+          return;
         }
-        const handler = inputBindings[property];
-        if (handler) {
-          const [eventName, inputGetter] = handler;
-          el.addEventListener(eventName, (e) => {
-            const target = e.target as HTMLInputElement;
-            signal.set(inputGetter(target));
-          });
-        } else {
-          if (debug) {
-            logger.warn(
-              `Two-way binding for property "${property}" is not supported out of the box. Please set up a custom event listener to update the signal.`,
-              el,
-            );
-          }
-        }
+        setInBinding(el, property, signal, logger);
       }
       didAddBinding = true;
     });
@@ -153,7 +193,7 @@ function createBindings(
   });
 }
 
-const globalCtx: Record<string, Signal<any>> = {};
+const globalCtx: Record<string, ReadSignal<any>> = {};
 const roots = new Set<HTMLElement>();
 
 /**
@@ -174,7 +214,7 @@ const roots = new Set<HTMLElement>();
  * ```html
  * <script src="path/to/indulgent-dom.js"></script>
  * <script>
- *  const count = indulgent.createSignal(0);
+ *  const count = indulgent.signal(0);
  *  indulgent.init({
  *   count,
  *  });
@@ -192,11 +232,22 @@ export function initIndulgent(
   /**
    * A context object mapping signal names to their corresponding Signal instances.
    */
-  ctx: Record<string, Signal<any>>,
+  ctx: Record<string, ReadSignal<any>>,
   opts?: { debug?: boolean; root?: HTMLElement },
 ): void {
-  const { root = document.body } = opts || {};
+  const { root = document.body, debug = false } = opts || {};
+  const logger = Object.fromEntries(
+    logFns.map((fn) => [
+      fn,
+      (...args: any[]) => {
+        if (debug) {
+          console[fn]('[indulgent]', ...args);
+        }
+      },
+    ]),
+  ) as Logger;
   Object.assign(globalCtx, ctx);
+
   const didFirstInit = roots.has(root);
   if (!didFirstInit) {
     const observer = new MutationObserver((mutations) => {
@@ -208,7 +259,7 @@ export function initIndulgent(
               asArr.push(node);
             }
           });
-          createBindings(asArr, globalCtx, opts);
+          createBindings(asArr, globalCtx, logger);
         }
       });
     });
@@ -223,13 +274,13 @@ export function initIndulgent(
   const initialElements = nodeArray.filter(
     (el) => !el.hasAttribute('data-indulgent-id'),
   );
-  createBindings(initialElements, globalCtx, opts);
+  createBindings(initialElements, globalCtx, logger);
 }
 
 if (typeof globalThis !== 'undefined') {
   // For cases where we directly include this script in a browser via a <script> tag instead of bundling it.
   try {
-    globalThis.__indulgentData ||= { currentId: 0 };
+    globalThis.__indulgentData ||= { currentId: 0, globalCtx };
     globalThis.indulgent = indulgent;
     Object.assign(globalThis.indulgent, { init: initIndulgent });
   } catch {}

@@ -12,16 +12,19 @@
   },
   "homepage": "https://frodi-karlsson.github.io/indulgent/",
   "scripts": {
-    "build-dom": "esbuild src/index.ts --bundle --minify --sourcemap --platform=browser --target=es2022 --outfile=dist/index-cdn.js",
-    "build": "tsc && pnpm run build-dom"
+    "build-dom": "esbuild src/client/index.ts --bundle --minify --sourcemap --platform=browser --target=es2022 --outfile=dist/index-cdn.js",
+    "build": "tsc -p src/server/tsconfig.json && tsc -p src/client/tsconfig.json && npm run build-dom"
   },
   "dependencies": {
+    "happy-dom": "^18",
     "indulgent": "workspace:^0"
   },
   "description": "",
   "main": "dist/index.js",
   "exports": {
-    ".": "./dist/index.js"
+    "./client": "./dist/index.js",
+    "./server": "./dist/server/index.js",
+    "./*": "./dist"
   },
   "type": "module",
   "keywords": [],
@@ -32,6 +35,7 @@
     "node": ">=22"
   },
   "devDependencies": {
-    "esbuild": "^0.25.10"
+    "@types/node": "^24",
+    "esbuild": "^0"
   }
 }

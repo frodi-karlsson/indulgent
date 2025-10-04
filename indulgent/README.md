@@ -17,9 +17,9 @@ I aim to use this only for my own personal projects, but if you think it looks u
 A very simple reactive state management system inspired by Angular 17+. Dependencies are tracked automatically, and updates are batched to avoid unnecessary recomputations.
 
 ```ts
-import { createSignal, computed, storeSignal } from 'indulgent/signal';
+import { signal, computed, storeSignal } from 'indulgent/signal';
 
-const count = createSignal(0);
+const count = signal(0);
 
 const input = storeSignal('my_key', '', { storage: sessionStorage });
 

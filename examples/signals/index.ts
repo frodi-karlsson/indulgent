@@ -1,9 +1,6 @@
 import { createServer } from 'http';
 import fs from 'node:fs';
 
-// static route for node_modules script imports of indulgent/signal
-const staticRoutes = new Set(['signal.js']);
-
 const server = createServer((req, res) => {
   if (!req.url) {
     res.writeHead(400);
@@ -11,7 +8,7 @@ const server = createServer((req, res) => {
     return;
   }
 
-  if (staticRoutes.has(req.url.replace(/^\/scripts\//, ''))) {
+  if (req.url.startsWith('/scripts/')) {
     const filePath = `./node_modules/indulgent/dist/signal/${req.url.replace(/^\/scripts\//, '')}`;
     if (fs.existsSync(filePath)) {
       const fileContent = fs.readFileSync(filePath);

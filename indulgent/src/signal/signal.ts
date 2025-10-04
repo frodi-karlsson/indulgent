@@ -1,251 +1,326 @@
+import { NextMicroTaskEmitter, type ValueArgs } from './eventEmitter.js';
+
+interface SignalOptions<T> {
+  equalsFn?: (a: T, b: T) => boolean;
+  logger?: (message: string) => void;
+}
+
 /**
- * A reactive signal that holds a value of type T and allows for dependency tracking and updates.
+ * Describes a signal that can be read from.
+ *
+ * The important part to understand is `signal.get()`. The rest are intended
+ * to be called by library code, although you can call them if you want to.
  */
-export interface Signal<T> {
+export interface ReadSignal<T> {
   /**
-   * Optional cleanup function to be called when the signal is no longer needed.
+   * A marker property to identify this as a signal-like object.
    */
-  cleanup?: CleanupFn;
+  _readSignal: true;
   /**
-   * Retrieves the current value of the signal.
+   * Get the current value of the signal.
+   * If done inside a reactive context (computed signal or effect),
+   * the signal will be tracked as a dependency.
+   *
+   * @example
+   * ```ts
+   * const count = signal(0);
+   * console.log(count.get()); // 0
+   * count.set(5);
+   * console.log(count.get()); // 5
+   * ```
    */
-  get: () => T;
+  get(): T;
   /**
-   * Updates the signal value using a callback that receives the old value and returns the new value.
+   * Register a listener that will be called when the signal's value changes.
    */
-  update: (cb: (oldValue: T) => T) => void;
+  registerDependent(listener: (value: T) => void): void;
   /**
-   * Sets the signal to a new value, updating all registered dependencies.
+   * Unregister a listener that was previously registered.
    */
-  set: (newValue: T) => void;
+  unregisterDependent(listener: (value: T) => void): boolean;
   /**
-   * Registers a dependency listener that will be called whenever the signal value changes.
-   * Returns a function to unregister the listener.
+   * Unregister all listeners that were previously registered.
    */
-  registerDependency: (listener: (newValue: T) => void) => CleanupFn;
-  /**
-   * Unregisters all previously registered dependency listeners.
-   */
-  unregisterAllDependencies: () => void;
+  unregisterAllDependents(): void;
 }
 
-export interface ReadOnlySignal<T> extends Omit<Signal<T>, 'set' | 'update'> {}
-type CleanupFn = () => void;
+/**
+ * Describes a signal that can be written to.
+ */
+export interface WriteSignal<T> {
+  /**
+   * A marker property to identify this as a signal-like object.
+   */
+  _writeSignal: true;
+  /**
+   * Queues setting a new value for the signal to the next microtask.
+   * If the new value is different from the current value (based on the equality function),
+   * all registered dependents will be notified of the new value.
+   */
+  set(newValue: T): void;
+  /**
+   * Queues updating the signal's value based on its current value to the next microtask.
+   * If the new value is different from the current value (based on the equality function),
+   * all registered dependents will be notified of the new value.
+   */
+  update(cb: (oldValue: T) => T): void;
+}
 
-const signalUpdates = new Map<string, () => void>();
-let allSignalListener: ((signal: Signal<any>) => void) | null = null;
-let processQueued = false;
+export type Signal<T> = ReadSignal<T> & WriteSignal<T>;
 
-function processSignalUpdates() {
-  processQueued = false;
-  if (!signalUpdates.size) {
-    return;
+class SignalImplementation<T> implements Signal<T> {
+  _readSignal = true as const;
+  _writeSignal = true as const;
+  private value: T;
+  private equalsFn: (a: T, b: T) => boolean;
+  private emitter: NextMicroTaskEmitter<T>;
+  private dependents = new Set<(value: T) => void>();
+  private logger?: (message: string) => void;
+
+  constructor(initialValue: T, options?: SignalOptions<T>) {
+    this.value = initialValue;
+    this.equalsFn =
+      options?.equalsFn ?? ((a, b) => JSON.stringify(a) === JSON.stringify(b));
+    this.logger = options?.logger;
+    this.emitter = new NextMicroTaskEmitter<T>((msg) => {
+      this.logger?.(`Emitter: ${msg}`);
+    });
   }
-  const updates = [...signalUpdates.values()];
-  signalUpdates.clear();
-  for (const update of updates) {
-    update();
+
+  get(): T {
+    this.logger?.(`Signal get: ${this.value}`);
+    reaction?.(this);
+    return this.value;
+  }
+
+  set(newValue: T): void {
+    this.logger?.(`Signal set: ${newValue}`);
+    if (!this.equalsFn(this.value, newValue)) {
+      this.value = newValue;
+      this.emitter.emit(newValue as ValueArgs<T>);
+    }
+  }
+
+  update(cb: (oldValue: T) => T): void {
+    this.logger?.(`Signal update`);
+    const newValue = cb(this.value);
+    this.set(newValue);
+  }
+
+  registerDependent(listener: (value: T) => void): void {
+    this.logger?.(`Registering dependent for signal`);
+    const previousSize = this.dependents.size;
+    this.dependents.add(listener);
+    if (this.dependents.size > previousSize) {
+      this.emitter.on(listener);
+    }
+  }
+
+  unregisterDependent(listener: (value: T) => void): boolean {
+    this.logger?.(`Unregistering dependent for signal`);
+    const found = this.dependents.delete(listener);
+    if (found) {
+      this.emitter.off(listener);
+    }
+    return found;
+  }
+
+  unregisterAllDependents(): void {
+    this.logger?.(`Unregistering all dependents for signal`);
+    for (const listener of this.dependents) {
+      this.emitter.off(listener);
+    }
+    this.dependents.clear();
   }
 }
 
-export function createSignal<T>(): Signal<T | undefined>;
-export function createSignal<T>(
+export function signal<T extends undefined>(): Signal<T>;
+export function signal<T>(
   initialValue: T,
-  options?: { equalsFn?: (a: T, b: T) => boolean },
+  options?: SignalOptions<T>,
 ): Signal<T>;
-/**
- * Creates a new reactive signal with an optional initial value and equality function.
- */
-export function createSignal<T>(
+export function signal<T>(
   initialValue?: T,
-  options?: { equalsFn?: (a: T | undefined, b: T | undefined) => boolean },
-): Signal<T | undefined> {
-  const id = `signal_${Math.random().toString(36).substring(2, 15)}`;
-  const listeners = new Set<(newValue: T | undefined) => void>();
-  let { equalsFn } = options || {};
-  equalsFn ||= (a: T | undefined, b: T | undefined) =>
-    JSON.stringify(a) === JSON.stringify(b);
-  let value = initialValue;
-  const updates: ((oldValue: T | undefined) => T | undefined)[] = [];
-  let cleanedUp = false;
-
-  function processUpdates() {
-    if (cleanedUp) {
-      return;
-    }
-    if (!updates.length) {
-      return;
-    }
-    let newValue = value;
-    for (const update of updates) {
-      newValue = update(newValue);
-    }
-    updates.splice(0, updates.length);
-    if (!equalsFn!(value, newValue)) {
-      value = newValue;
-      // oxlint-disable-next-line no-useless-spread
-      for (const listener of [...listeners]) {
-        listener(value);
-      }
-    }
-  }
-
-  const signal: Signal<T | undefined> = {
-    // @ts-expect-error --- Secret variable for internal use
-    __isSignal: true,
-    get: () => {
-      allSignalListener?.(signal);
-      return value;
-    },
-    update: (cb) => {
-      updates.push(cb);
-      if (!signalUpdates.has(id)) {
-        signalUpdates.set(id, () => processUpdates());
-      }
-      if (processQueued) {
-        return;
-      }
-      queueMicrotask(() => {
-        processSignalUpdates();
-      });
-      processQueued = true;
-    },
-    set: (newValue) => {
-      signal.update(() => newValue);
-    },
-    registerDependency: (listener) => {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-    unregisterAllDependencies: () => {
-      listeners.clear();
-    },
-    cleanup: () => {
-      signal.unregisterAllDependencies();
-      cleanedUp = true;
-    },
-  };
-
-  processUpdates();
-
-  return signal;
+  options?: SignalOptions<T>,
+): Signal<T> {
+  return new SignalImplementation(initialValue as T, options);
 }
 
-export function storeSignal<T>(key: string): Signal<T | undefined>;
+export function storeSignal<T extends undefined>(key: string): Signal<T>;
 export function storeSignal<T>(
   key: string,
   initialValue: T,
-  options?: {
-    equalsFn?: (a: T, b: T) => boolean;
-    storage?: Storage;
-  },
+  options?: SignalOptions<T> & { storage?: Storage },
 ): Signal<T>;
-/**
- * Creates a signal that persists its value in localStorage (or a custom storage) under the given key.
- */
 export function storeSignal<T>(
   key: string,
   initialValue?: T,
-  options?: {
-    equalsFn?: (a: T | undefined, b: T | undefined) => boolean;
-    /** Defaults to localStorage */
-    storage?: Storage;
-  },
-): Signal<T | undefined> {
-  let storage: Storage;
-  if (options?.storage) {
-    const { storage: providedStorage } = options;
-    storage = providedStorage;
-  } else {
-    storage = localStorage;
-  }
-  const preExisting = storage.getItem(key);
-  let internalInitialValue: T | undefined = undefined;
-  if (preExisting !== null) {
+  options?: SignalOptions<T> & { storage?: Storage },
+): Signal<T> {
+  const storage = options?.storage ?? localStorage;
+  const storedValue = storage.getItem(key);
+  let parsedValue: T;
+  if (storedValue !== null) {
     try {
-      internalInitialValue = JSON.parse(preExisting);
-    } catch {
-      internalInitialValue = initialValue;
+      parsedValue = JSON.parse(storedValue) as T;
+    } catch (error) {
+      throw new SignalError(
+        `Failed to parse stored value for key "${key}": ${error}`,
+      );
     }
   } else {
-    internalInitialValue = initialValue;
+    parsedValue = initialValue as T;
+    storage.setItem(key, JSON.stringify(parsedValue));
   }
-
-  const signal = createSignal<T | undefined>(internalInitialValue, {
-    equalsFn: options?.equalsFn,
-  });
-  signal.registerDependency((newValue) => {
+  const signalInstance = signal<T>(parsedValue, options);
+  signalInstance.registerDependent((newValue) => {
     storage.setItem(key, JSON.stringify(newValue));
   });
-  return signal;
+  return signalInstance;
 }
 
-function createReaction(cb: () => void): CleanupFn {
-  const deps = new Set<CleanupFn>();
+// not concurrency-safe
+let reaction: ((signal: ReadSignal<any>) => void) | null = null;
 
-  function listener() {
-    react();
-  }
-
-  function react() {
-    cleanup();
-    allSignalListener = track;
-    try {
-      cb();
-    } finally {
-      allSignalListener = null;
-    }
-  }
-
-  function track(signal: Signal<any>) {
-    deps.add(signal.registerDependency(listener));
-  }
-
-  function cleanup() {
-    for (const dep of deps) {
-      dep();
-    }
-    deps.clear();
-  }
-
-  react();
-  return cleanup;
-}
-
-/**
- * Creates a computed read-only signal that derives its value from other signals.
- */
-export function computed<T>(cb: () => T): ReadOnlySignal<T> {
-  const signal = createSignal<T>(cb());
-  const disposeReaction = createReaction(() => {
-    signal.set(cb());
-  });
-
-  const originalCleanup = signal.cleanup;
-  const { set: _set, update: _update, ...rest } = signal;
-
-  return {
-    ...rest,
-    unregisterAllDependencies: () => {
-      disposeReaction();
-      originalCleanup?.();
-    },
+function track<T>(callback: () => T): ReadSignal<any>[] {
+  const prevReaction = reaction;
+  const signals: ReadSignal<any>[] = [];
+  reaction = (signal: ReadSignal<any>) => {
+    signals.push(signal);
   };
+  try {
+    callback();
+  } finally {
+    reaction = prevReaction;
+  }
+  return signals;
 }
 
-/**
- * Creates a side-effect that runs the provided callback whenever its dependencies change.
- */
-export function effect(cb: () => void): CleanupFn {
-  const disposeReaction = createReaction(cb);
-  return disposeReaction;
+export class ComputedSignalImplementation<T> implements ReadSignal<T> {
+  _readSignal = true as const;
+  private computeFn: () => T;
+  private signal: SignalImplementation<T>;
+  private dependencies = new Set<ReadSignal<any>>();
+  private logger?: (message: string) => void;
+
+  constructor(computeFn: () => T, options?: SignalOptions<T>) {
+    this.computeFn = computeFn;
+    this.signal = new SignalImplementation(undefined as T, {
+      logger: (msg) => {
+        options?.logger?.(`Internal: ${msg}`);
+      },
+    });
+    this.logger = options?.logger;
+    this.track();
+  }
+
+  private dependencyFn = () => {
+    this.logger?.(`Computed signal dependency changed`);
+    this.track();
+  };
+
+  private track(): void {
+    let value: T | undefined;
+    const dependencies = track(() => {
+      value = this.computeFn();
+      this.logger?.(`Computed value updated to ${value}`);
+    });
+    this.signal.set(value as T);
+    this.dependencies.forEach((dep) => {
+      if (dependencies.includes(dep)) {
+        return;
+      } else {
+        this.logger?.(`Dependency no longer needed, unregistering`);
+        const found = dep.unregisterDependent(this.dependencyFn);
+        if (found) {
+          this.logger?.(`Unregistered dependency from computed signal`);
+        } else {
+          this.logger?.(`Dependency was not found in computed signal`);
+        }
+      }
+    });
+    for (const dep of dependencies) {
+      if (this.dependencies.has(dep)) {
+        continue;
+      } else {
+        this.logger?.(`New dependency found, registering`);
+        dep.registerDependent(this.dependencyFn);
+        this.logger?.(`Registered dependency for computed signal`);
+      }
+      this.dependencies.add(dep);
+    }
+    this.logger?.(
+      `Computed signal tracking ${dependencies.length} dependencies`,
+    );
+  }
+
+  get() {
+    this.logger?.(`Getting computed signal value`);
+    return this.signal.get();
+  }
+
+  registerDependent(listener: (value: T) => void) {
+    this.logger?.(`Registering dependent for computed signal`);
+    this.signal.registerDependent(listener);
+  }
+
+  unregisterDependent(listener: (value: T) => void) {
+    this.logger?.(`Unregistering dependent for computed signal`);
+    return this.signal.unregisterDependent(listener);
+  }
+
+  unregisterAllDependents() {
+    this.logger?.(`Unregistering all dependents for computed signal`);
+    this.signal.unregisterAllDependents();
+  }
 }
 
-/**
- * Verifies that the passed object is a signal.
- */
-export function isSignal(obj: any): obj is Signal<any> {
-  return obj && obj.__isSignal === true;
+export function computed<T>(
+  computeFn: () => T,
+  options?: SignalOptions<T>,
+): ComputedSignalImplementation<T> {
+  return new ComputedSignalImplementation(computeFn, options);
+}
+
+export class Effect {
+  private effectFn: () => void;
+  private dependencies = new Set<ReadSignal<any>>();
+
+  constructor(effectFn: () => void) {
+    this.effectFn = effectFn;
+    this.track();
+  }
+
+  private track() {
+    const signals = track(() => {
+      this.effectFn();
+    });
+    for (const dep of this.dependencies) {
+      if (signals.includes(dep)) {
+        continue;
+      } else {
+        dep.unregisterDependent(this.track.bind(this));
+        this.dependencies.delete(dep);
+      }
+    }
+    for (const signal of signals) {
+      if (this.dependencies.has(signal)) {
+        continue;
+      } else {
+        signal.registerDependent(this.track.bind(this));
+        this.dependencies.add(signal);
+      }
+    }
+  }
+}
+
+export function effect(effectFn: () => void | (() => void)): void {
+  const _ = new Effect(effectFn);
+}
+
+export class SignalError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SignalError';
+  }
 }

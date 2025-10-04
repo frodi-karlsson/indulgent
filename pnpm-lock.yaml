@@ -35,12 +35,18 @@ importers:
 
   dom:
     dependencies:
+      happy-dom:
+        specifier: ^18
+        version: 18.0.1
       indulgent:
         specifier: workspace:^0
         version: link:../indulgent
     devDependencies:
+      '@types/node':
+        specifier: ^24
+        version: 24.5.2
       esbuild:
-        specifier: ^0.25.10
+        specifier: ^0
         version: 0.25.10
 
   examples/api:
@@ -49,7 +55,13 @@ importers:
         specifier: workspace:^0
         version: link:../../indulgent
 
-  examples/bindings:
+  examples/signals:
+    dependencies:
+      indulgent:
+        specifier: workspace:^0
+        version: link:../../indulgent
+
+  examples/ssg:
     dependencies:
       indulgent:
         specifier: workspace:^0
@@ -58,15 +70,9 @@ importers:
         specifier: workspace:^0
         version: link:../../dom
     devDependencies:
-      vite:
-        specifier: ^7.1.7
-        version: 7.1.7(@types/node@24.5.2)(yaml@2.8.1)
-
-  examples/signals:
-    dependencies:
-      indulgent:
-        specifier: workspace:^0
-        version: link:../../indulgent
+      '@types/node':
+        specifier: ^24.5.2
+        version: 24.5.2
 
   indulgent: {}
 

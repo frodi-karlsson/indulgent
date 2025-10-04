@@ -3,6 +3,7 @@ declare global {
   // oxlint-disable-next-line vars-on-top
   var __indulgentData: {
     currentId: number;
+    globalCtx?: Record<string, unknown>;
   };
   // oxlint-disable-next-line vars-on-top
   var indulgent: typeof indulgent & {

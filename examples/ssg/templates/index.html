@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Indulgent Example</title>
+  </head>
+  <body style="margin: 0">
+    <script indulgent>
+      const isOpen = indulgent.signal(false);
+      const backgroundColor = indulgent.computed(() => {
+        if (isOpen.get()) {
+          return '#0a0a0a';
+        }
+        return '#ffffff';
+      });
+      const foregroundColor = indulgent.computed(() => {
+        if (isOpen.get()) {
+          return '#ffffff';
+        }
+        return '#000000';
+      });
+      const containerStyle = indulgent.computed(() => {
+        return `
+            background-color: ${backgroundColor.get()};
+            color: ${foregroundColor.get()};
+            transition: background-color 0.5s, color 0.5s;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+        `;
+      });
+
+      const summary = indulgent.computed(() => {
+        if (isOpen.get()) {
+          return 'Click to close dark mode';
+        }
+        return 'Click to open dark mode';
+      });
+
+      indulgent.init({
+        isOpen,
+        containerStyle,
+        summary,
+      });
+    </script>
+    <div obind:style="containerStyle">
+      <details ibind:open="isOpen" onclick="console.log('Details clicked')">
+        <summary obind:inner_text="summary">Loading...</summary>
+        <p>
+          This is an example of using Indulgent with a static site generator
+          (SSG) setup.
+        </p>
+        <p>
+          The content of this page is rendered on the server, but the details
+          element can still be toggled on the client.
+        </p>
+      </details>
+    </div>
+  </body>
+</html>
