@@ -1,14 +1,14 @@
 {
-  "extends": "../tsconfig.base.json",
+  "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "./dist",
+    "rootDir": ".",
+    "outDir": "../../dist/client",
     "module": "esnext",
     "target": "esnext",
     "declaration": true,
     "lib": ["esnext", "dom"],
-    "types": ["./types/global"],
+    "types": ["../../types/global"],
     "moduleResolution": "bundler"
   },
-  "include": ["src/index.ts"]
+  "include": ["index.ts"]
 }

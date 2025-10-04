@@ -15,11 +15,11 @@ Bind indulgent signals to DOM elements using custom attributes.
 - `iobind:` - two-way binding between signal and DOM element
 
 ```ts
-import { createSignal } from 'indulgent/signal';
+import { signal } from 'indulgent/signal';
 import { initIndulgent } from 'indulgent-dom';
 
-const name = createSignal('World');
-const address = createSignal('Earth');
+const name = signal('World');
+const address = signal('Earth');
 
 initIndulgent({ address, name });
 // initIndulgent can be called multiple times

@@ -7,9 +7,9 @@
   </head>
   <body>
     <!-- You could use unpkg like https://unpkg.com/indulgent-dom/dist/index-cdn.js -->
-    <script src="https://unpkg.com/indulgent-dom/dist/index-cdn.js"></script>
+    <script src="./node_modules/indulgent-dom/dist/index-cdn.js"></script>
     <script>
-      var title = indulgent.createSignal('Hello World');
+      var title = indulgent.signal('Hello World');
       indulgent.effect(() => {
         console.log('Title changed to:', title.get());
       });
@@ -18,7 +18,7 @@
         title.set('Hello Indulgent');
       }, 2000);
 
-      var input = indulgent.createSignal('Type something...');
+      var input = indulgent.signal('Type something...');
 
       indulgent.effect(() => {
         console.log('Input changed to:', input.get());

@@ -1,17 +1,17 @@
 import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
-import { createSignal } from 'indulgent/signal';
+import { computed, signal } from 'indulgent/signal';
 import { initIndulgent } from './index.js';
 
+beforeEach(() => {
+  document.body.innerHTML = '';
+  vi.useFakeTimers();
+});
+
+afterAll(() => {
+  vi.useRealTimers();
+});
+
 describe('initIndulgent', () => {
-  beforeEach(() => {
-    document.body.innerHTML = '';
-    vi.useFakeTimers();
-  });
-
-  afterAll(() => {
-    vi.useRealTimers();
-  });
-
   describe('obind', () => {
     test('should bind signal to element property', async () => {
       document.body.innerHTML = `
@@ -21,10 +21,11 @@ describe('initIndulgent', () => {
       `;
       const input = document.getElementById('input') as HTMLInputElement;
       const ctx = {
-        mySignal: createSignal('Initial Value'),
+        mySignal: signal('Initial Value', { logger: console.warn }),
       };
 
       initIndulgent(ctx, { root: document.body });
+
       expect(input.value).toBe('Initial Value');
 
       ctx.mySignal.set('Updated Value');
@@ -42,7 +43,7 @@ describe('initIndulgent', () => {
       `;
       const input = document.getElementById('input') as HTMLInputElement;
       const ctx = {
-        mySignal: createSignal('Initial Value'),
+        mySignal: signal('Initial Value'),
       };
 
       initIndulgent(ctx, { root: document.body });
@@ -64,7 +65,7 @@ describe('initIndulgent', () => {
       `;
       const input = document.getElementById('input') as HTMLInputElement;
       const ctx = {
-        mySignal: createSignal('Initial Value'),
+        mySignal: signal('Initial Value'),
       };
 
       initIndulgent(ctx, { root: document.body });
@@ -92,13 +93,13 @@ describe('initIndulgent', () => {
         </div>
       `;
       const ctx = {
-        mySignal: createSignal('Initial Value'),
+        mySignal: signal('Initial Value'),
       };
 
       initIndulgent(ctx, { root: document.body, debug: true });
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         '[indulgent]',
-        'Two-way binding for property "title" is not supported out of the box. Please set up a custom event listener to update the signal.',
+        'Input binding for property "title" is not supported out of the box. Please set up a custom event listener to update the signal.',
         expect.any(HTMLElement),
       );
 
@@ -116,13 +117,13 @@ describe('initIndulgent', () => {
         </div>
       `;
       const ctx = {
-        mySignal: createSignal('Initial Value'),
+        mySignal: signal('Initial Value'),
       };
 
       initIndulgent(ctx, { root: document.body, debug: true });
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         '[indulgent]',
-        'Signal "nonExistentSignal" is not defined in context',
+        '"nonExistentSignal" is not a signal',
       );
 
       consoleWarnSpy.mockRestore();
@@ -146,7 +147,6 @@ describe('initIndulgent', () => {
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         '[indulgent]',
         '"notASignal" is not a signal',
-        42,
       );
 
       consoleWarnSpy.mockRestore();
@@ -167,7 +167,7 @@ describe('initIndulgent', () => {
       `;
         const div = document.getElementById('div') as HTMLDivElement;
         const ctx = {
-          mySignal: createSignal('Initial Value'),
+          mySignal: signal('Initial Value'),
         };
 
         initIndulgent(ctx, { root: document.body });
@@ -179,6 +179,30 @@ describe('initIndulgent', () => {
         expect((div as any)[prop]).toBe('Updated Value');
       },
     );
+
+    test('should handle computed signal depending on another computed signal', async () => {
+      document.body.innerHTML = `
+        <div>
+          <h1 id="header" obind:text_content="computedSignal2"></h1>
+        </div>
+      `;
+      const baseSignal = signal('World');
+      const computedSignal = computed(() => `Hello, ${baseSignal.get()}!`);
+      const computedSignal2 = computed(() =>
+        computedSignal.get().toUpperCase(),
+      );
+      const ctx = {
+        computedSignal2,
+      };
+      initIndulgent(ctx, { root: document.body });
+
+      const header = document.getElementById('header') as HTMLHeadingElement;
+      expect(header.textContent).toBe('HELLO, WORLD!');
+
+      baseSignal.set('Indulgent');
+      await vi.runAllTimersAsync();
+      expect(header.textContent).toBe('HELLO, INDULGENT!');
+    });
   });
 
   describe('multiple bindings', () => {
@@ -191,8 +215,8 @@ describe('initIndulgent', () => {
 
       const input = document.getElementById('input') as HTMLInputElement;
       const ctx = {
-        valueSignal: createSignal(''),
-        placeholder: createSignal('Placeholder'),
+        valueSignal: signal(''),
+        placeholder: signal('Placeholder'),
       };
 
       initIndulgent(ctx, { root: document.body });
@@ -222,10 +246,10 @@ describe('initIndulgent', () => {
       const input1 = document.getElementById('input1') as HTMLInputElement;
       const input2 = document.getElementById('input2') as HTMLInputElement;
       const ctx1 = {
-        signal1: createSignal('Value 1'),
+        signal1: signal('Value 1'),
       };
       const ctx2 = {
-        signal2: createSignal('Value 2'),
+        signal2: signal('Value 2'),
       };
 
       initIndulgent(ctx1, { root: document.body, debug: true });
@@ -254,7 +278,7 @@ describe('initIndulgent', () => {
       `;
       const input = document.getElementById('input') as HTMLInputElement;
       const ctx = {
-        mySignal: createSignal('Initial Value'),
+        mySignal: signal('Initial Value'),
       };
 
       initIndulgent(ctx, { root: document.body, debug: true });
@@ -290,10 +314,10 @@ describe('initIndulgent', () => {
       const input1 = document.getElementById('input1') as HTMLInputElement;
       const input2 = document.getElementById('input2') as HTMLInputElement;
       const ctx1 = {
-        signal1: createSignal('Value 1'),
+        signal1: signal('Value 1'),
       };
       const ctx2 = {
-        signal2: createSignal('Value 2'),
+        signal2: signal('Value 2'),
       };
 
       initIndulgent(ctx1, { root: root1, debug: true });
@@ -302,5 +326,76 @@ describe('initIndulgent', () => {
       initIndulgent(ctx2, { root: root2, debug: true });
       expect(input2.value).toBe('Value 2');
     });
+  });
+});
+
+describe('integration', () => {
+  test('buggy styles example', async () => {
+    document.body.innerHTML = `
+      <div id="container" obind:style="containerStyle">
+        <h1>Welcome to Indulgent!</h1>
+        <p>This is a simple example demonstrating dynamic styles.</p>
+      </div>
+    `;
+
+    const isOpen = signal(false);
+    const backgroundColor = computed(() => {
+      const open = isOpen.get();
+      console.log('Recomputing backgroundColor, isOpen:', open);
+      if (open) {
+        return '#0a0a0a';
+      }
+      return '#ffffff';
+    });
+    const foregroundColor = computed(() => {
+      const open = isOpen.get();
+      if (open) {
+        return '#ffffff';
+      }
+      return '#000000';
+    });
+    const containerStyle = computed(() => {
+      const bg = backgroundColor.get();
+      const fg = foregroundColor.get();
+      return `
+            background-color: ${bg};
+            color: ${fg};
+            transition: background-color 0.5s, color 0.5s;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 0 40px;
+        `;
+    });
+    const container = document.getElementById('container') as HTMLDivElement;
+    initIndulgent(
+      {
+        isOpen,
+        containerStyle,
+      },
+      { debug: true },
+    );
+
+    expect(containerStyle.get()).toBe(
+      `
+            background-color: #ffffff;
+            color: #000000;
+            transition: background-color 0.5s, color 0.5s;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 0 40px;
+        `,
+    );
+    expect(container.style.backgroundColor).toBe('#ffffff');
+    expect(container.style.color).toBe('#000000');
+
+    isOpen.set(true);
+    await vi.runAllTimersAsync();
+
+    expect(container.style.backgroundColor).toBe('#0a0a0a');
+    expect(container.style.color).toBe('#ffffff');
   });
 });

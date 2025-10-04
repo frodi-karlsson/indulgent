@@ -1,5 +1,5 @@
 {
-  "name": "@indulgent/examples-framework",
+  "name": "@indulgent/examples-bindings-ssg",
   "version": "0.0.1",
   "description": "",
   "private": true,
@@ -13,6 +13,6 @@
     "indulgent-dom": "workspace:^0"
   },
   "devDependencies": {
-    "vite": "^7.1.7"
+    "@types/node": "^24.5.2"
   }
 }

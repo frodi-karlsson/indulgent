@@ -1,5 +1,5 @@
 import { effect } from 'indulgent';
-import { initIndulgent } from 'indulgent-dom';
+import { initIndulgent } from 'indulgent-dom/client';
 import { storeSignal } from 'indulgent/signal';
 
 // Initializes a signal that's persisted in localStorage
