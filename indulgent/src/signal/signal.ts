@@ -1,8 +1,9 @@
+import { type Logger, createBaseLogger } from '../util/logger.js';
 import { NextMicroTaskEmitter, type ValueArgs } from './eventEmitter.js';
 
 interface SignalOptions<T> {
   equalsFn?: (a: T, b: T) => boolean;
-  logger?: (message: string) => void;
+  logger?: Logger;
 }
 
 /**
@@ -75,26 +76,28 @@ class SignalImplementation<T> implements Signal<T> {
   private equalsFn: (a: T, b: T) => boolean;
   private emitter: NextMicroTaskEmitter<T>;
   private dependents = new Set<(value: T) => void>();
-  private logger?: (message: string) => void;
+  private logger?: Logger;
 
   constructor(initialValue: T, options?: SignalOptions<T>) {
     this.value = initialValue;
     this.equalsFn =
       options?.equalsFn ?? ((a, b) => JSON.stringify(a) === JSON.stringify(b));
     this.logger = options?.logger;
-    this.emitter = new NextMicroTaskEmitter<T>((msg) => {
-      this.logger?.(`Emitter: ${msg}`);
-    });
+    let internalLogger: Logger | undefined = undefined;
+    if (options?.logger) {
+      internalLogger = createBaseLogger(`${options.logger.context}->EMITTER`);
+    }
+    this.emitter = new NextMicroTaskEmitter<T>(internalLogger);
   }
 
   get(): T {
-    this.logger?.(`Signal get: ${this.value}`);
+    this.logger?.('info', `Signal get: ${this.value}`);
     reaction?.(this);
     return this.value;
   }
 
   set(newValue: T): void {
-    this.logger?.(`Signal set: ${newValue}`);
+    this.logger?.('info', `Signal set: ${JSON.stringify(newValue)}`);
     if (!this.equalsFn(this.value, newValue)) {
       this.value = newValue;
       this.emitter.emit(newValue as ValueArgs<T>);
@@ -102,13 +105,13 @@ class SignalImplementation<T> implements Signal<T> {
   }
 
   update(cb: (oldValue: T) => T): void {
-    this.logger?.(`Signal update`);
-    const newValue = cb(this.value);
+    const newValue = cb(structuredClone(this.value));
+    this.logger?.('info', `Signal update: ${JSON.stringify(newValue)}`);
     this.set(newValue);
   }
 
   registerDependent(listener: (value: T) => void): void {
-    this.logger?.(`Registering dependent for signal`);
+    this.logger?.('info', `Registering dependent for signal`);
     const previousSize = this.dependents.size;
     this.dependents.add(listener);
     if (this.dependents.size > previousSize) {
@@ -117,7 +120,7 @@ class SignalImplementation<T> implements Signal<T> {
   }
 
   unregisterDependent(listener: (value: T) => void): boolean {
-    this.logger?.(`Unregistering dependent for signal`);
+    this.logger?.('info', `Unregistering dependent for signal`);
     const found = this.dependents.delete(listener);
     if (found) {
       this.emitter.off(listener);
@@ -126,7 +129,7 @@ class SignalImplementation<T> implements Signal<T> {
   }
 
   unregisterAllDependents(): void {
-    this.logger?.(`Unregistering all dependents for signal`);
+    this.logger?.('info', `Unregistering all dependents for signal`);
     for (const listener of this.dependents) {
       this.emitter.off(listener);
     }
@@ -201,21 +204,24 @@ export class ComputedSignalImplementation<T> implements ReadSignal<T> {
   private computeFn: () => T;
   private signal: SignalImplementation<T>;
   private dependencies = new Set<ReadSignal<any>>();
-  private logger?: (message: string) => void;
+  private logger?: Logger;
 
   constructor(computeFn: () => T, options?: SignalOptions<T>) {
     this.computeFn = computeFn;
+    let internalLogger: Logger | undefined = undefined;
+    if (options?.logger) {
+      internalLogger = createBaseLogger(`${options.logger.context}->COMPUTED`);
+    }
     this.signal = new SignalImplementation(undefined as T, {
-      logger: (msg) => {
-        options?.logger?.(`Internal: ${msg}`);
-      },
+      logger: internalLogger,
+      equalsFn: options?.equalsFn,
     });
     this.logger = options?.logger;
     this.track();
   }
 
   private dependencyFn = () => {
-    this.logger?.(`Computed signal dependency changed`);
+    this.logger?.('info', `Computed signal dependency changed`);
     this.track();
   };
 
@@ -223,19 +229,22 @@ export class ComputedSignalImplementation<T> implements ReadSignal<T> {
     let value: T | undefined;
     const dependencies = track(() => {
       value = this.computeFn();
-      this.logger?.(`Computed value updated to ${value}`);
+      this.logger?.(
+        'info',
+        `Computed value updated to ${JSON.stringify(value)}`,
+      );
     });
     this.signal.set(value as T);
     this.dependencies.forEach((dep) => {
       if (dependencies.includes(dep)) {
         return;
       } else {
-        this.logger?.(`Dependency no longer needed, unregistering`);
+        this.logger?.('info', `Dependency no longer needed, unregistering`);
         const found = dep.unregisterDependent(this.dependencyFn);
         if (found) {
-          this.logger?.(`Unregistered dependency from computed signal`);
+          this.logger?.('info', `Unregistered dependency from computed signal`);
         } else {
-          this.logger?.(`Dependency was not found in computed signal`);
+          this.logger?.('info', `Dependency was not found in computed signal`);
         }
       }
     });
@@ -243,34 +252,35 @@ export class ComputedSignalImplementation<T> implements ReadSignal<T> {
       if (this.dependencies.has(dep)) {
         continue;
       } else {
-        this.logger?.(`New dependency found, registering`);
+        this.logger?.('info', `New dependency found, registering`);
         dep.registerDependent(this.dependencyFn);
-        this.logger?.(`Registered dependency for computed signal`);
+        this.logger?.('info', `Registered dependency for computed signal`);
       }
       this.dependencies.add(dep);
     }
     this.logger?.(
+      'info',
       `Computed signal tracking ${dependencies.length} dependencies`,
     );
   }
 
   get() {
-    this.logger?.(`Getting computed signal value`);
+    this.logger?.('info', `Getting computed signal value`);
     return this.signal.get();
   }
 
   registerDependent(listener: (value: T) => void) {
-    this.logger?.(`Registering dependent for computed signal`);
+    this.logger?.('info', `Registering dependent for computed signal`);
     this.signal.registerDependent(listener);
   }
 
   unregisterDependent(listener: (value: T) => void) {
-    this.logger?.(`Unregistering dependent for computed signal`);
+    this.logger?.('info', `Unregistering dependent for computed signal`);
     return this.signal.unregisterDependent(listener);
   }
 
   unregisterAllDependents() {
-    this.logger?.(`Unregistering all dependents for computed signal`);
+    this.logger?.('info', `Unregistering all dependents for computed signal`);
     this.signal.unregisterAllDependents();
   }
 }

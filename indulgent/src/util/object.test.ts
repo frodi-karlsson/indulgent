@@ -1,5 +1,5 @@
+import { deepMerge, getPath } from './object.js';
 import { describe, expect, test } from 'vitest';
-import { deepMerge } from './object.js';
 
 describe('Object utilities', () => {
   const testCases: {
@@ -56,6 +56,36 @@ describe('Object utilities', () => {
     'should correctly merge when $description',
     ({ target, source, expected }) => {
       const result = deepMerge(target, source);
+      expect(result).toEqual(expected);
+    },
+  );
+});
+
+describe('getPath', () => {
+  const testCases: {
+    obj: any;
+    path: string;
+    expected: any;
+    description: string;
+  }[] = [
+    {
+      description: 'simple nested path',
+      obj: { a: { b: { c: 42 } } },
+      path: 'a.b.c',
+      expected: 42,
+    },
+    {
+      description: 'non-existent path',
+      obj: { a: { b: { c: 42 } } },
+      path: 'a.b.x',
+      expected: undefined,
+    },
+  ];
+
+  test.each(testCases)(
+    'should correctly get value for $description',
+    ({ obj, path, expected }) => {
+      const result = getPath(obj, path);
       expect(result).toEqual(expected);
     },
   );
