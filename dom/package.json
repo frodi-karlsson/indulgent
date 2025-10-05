@@ -1,6 +1,6 @@
 {
   "name": "indulgent-dom",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "licenses": [
     {
       "type": "ISC"
@@ -22,7 +22,7 @@
   "description": "",
   "main": "dist/index.js",
   "exports": {
-    "./client": "./dist/index.js",
+    "./client": "./dist/client/index.js",
     "./server": "./dist/server/index.js",
     "./*": "./dist"
   },
