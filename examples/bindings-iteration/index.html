@@ -14,21 +14,15 @@
         { id: 3, name: 'Charlie', description: 'A UX designer.' },
       ]);
 
-      indulgent.effect(() => {
-        console.log('Employees changed:', employees.get());
-      });
-
       setTimeout(() => {
-        console.log('Updating Bob...', Object.getOwnPropertyNames(employees));
         employees.update((list) => {
           const bob = list.find((u) => u.name === 'Bob');
           bob.description = 'An awesome product manager.';
-          console.log('Updated Bob', bob, list);
-          return [...list];
+          return list;
         });
       }, 3000);
 
-      indulgent.init({ employees }, { debug: true });
+      indulgent.init({ employees });
     </script>
     <div>
       <ul>
