@@ -535,6 +535,7 @@ const roots = new Set<HTMLElement>();
  * - `obind:*` creates a one-way binding where changes to the signal update the element property.
  * - `ibind:*` creates a one-way binding where changes to the element property update the signal.
  * - `iobind:*` creates a two-way binding between the signal and the element property.
+ * - 'bind:for' sets up a loop that repeats the element for each item in an array signal.
  *
  * @example
  * ```html
@@ -553,6 +554,12 @@ const roots = new Set<HTMLElement>();
  * <p obind:textContent="count"></p>
  * ```
  *
+ * @example
+ * ```html
+ * <div bind:for="item in items">
+ *   <p obind:textContent="item.name"></p>
+ * </div>
+ * ```
  */
 export function initIndulgent(
   /**
