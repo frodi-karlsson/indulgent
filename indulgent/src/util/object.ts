@@ -24,3 +24,15 @@ export function deepMerge<T>(target: unknown, source: unknown): T {
   }
   return output as T;
 }
+
+export function getPath<T>(obj: any, path: string): T | undefined {
+  const parts = path.split('.');
+  let current = obj;
+  for (const part of parts) {
+    if (current == null) {
+      return undefined;
+    }
+    current = current[part];
+  }
+  return current as T;
+}

@@ -55,6 +55,28 @@ importers:
         specifier: workspace:^0
         version: link:../../indulgent
 
+  examples/bindings:
+    dependencies:
+      indulgent:
+        specifier: workspace:^0
+        version: link:../../indulgent
+      indulgent-dom:
+        specifier: workspace:^0
+        version: link:../../dom
+
+  examples/bindings-iteration:
+    dependencies:
+      indulgent:
+        specifier: workspace:^0
+        version: link:../../indulgent
+      indulgent-dom:
+        specifier: workspace:^0
+        version: link:../../dom
+    devDependencies:
+      '@types/node':
+        specifier: ^24.5.2
+        version: 24.5.2
+
   examples/signals:
     dependencies:
       indulgent:

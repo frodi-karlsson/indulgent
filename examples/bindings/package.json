@@ -1,17 +1,15 @@
 {
-  "name": "@indulgent/examples-api",
+  "name": "@indulgent/examples-bindings",
   "version": "0.0.3",
   "description": "",
   "private": true,
   "main": "index.js",
-  "scripts": {
-    "build": "tsc"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.17.0",
   "dependencies": {
-    "indulgent": "workspace:^0"
+    "indulgent": "workspace:^0",
+    "indulgent-dom": "workspace:^0"
   }
 }

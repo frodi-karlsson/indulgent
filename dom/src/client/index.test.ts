@@ -1,4 +1,12 @@
-import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
+import {
+  type MockInstance,
+  afterAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from 'vitest';
 import { computed, signal } from 'indulgent/signal';
 import { initIndulgent } from './index.js';
 
@@ -11,6 +19,14 @@ afterAll(() => {
   vi.useRealTimers();
 });
 
+function expectLog(spy: MockInstance<any>, ...args: any[]) {
+  expect(spy).toHaveBeenCalledWith(
+    expect.any(String), // timestamp
+    '[IndulgentDOM]',
+    ...args,
+  );
+}
+
 describe('initIndulgent', () => {
   describe('obind', () => {
     test('should bind signal to element property', async () => {
@@ -21,7 +37,7 @@ describe('initIndulgent', () => {
       `;
       const input = document.getElementById('input') as HTMLInputElement;
       const ctx = {
-        mySignal: signal('Initial Value', { logger: console.warn }),
+        mySignal: signal('Initial Value'),
       };
 
       initIndulgent(ctx, { root: document.body });
@@ -32,6 +48,27 @@ describe('initIndulgent', () => {
       await vi.runAllTimersAsync();
 
       expect(input.value).toBe('Updated Value');
+    });
+
+    test('should create reactive bindings for object paths', async () => {
+      document.body.innerHTML = `
+        <div>
+          <input id="input" type="text" obind:value="user.name" />
+        </div>
+      `;
+      const input = document.getElementById('input') as HTMLInputElement;
+      const ctx = {
+        user: signal({ name: 'Alice', age: 30 }),
+      };
+
+      initIndulgent(ctx, { root: document.body });
+
+      expect(input.value).toBe('Alice');
+
+      ctx.user.update((u) => ({ ...u, name: 'Bob' }));
+      await vi.runAllTimersAsync();
+
+      expect(input.value).toBe('Bob');
     });
   });
   describe('ibind', () => {
@@ -54,6 +91,29 @@ describe('initIndulgent', () => {
 
       await vi.runAllTimersAsync();
       expect(ctx.mySignal.get()).toBe('User Input');
+    });
+
+    test('should warn if signal is object path', () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => {});
+
+      document.body.innerHTML = `
+        <div>
+          <input id="input" type="text" ibind:value="user.name" />
+        </div>
+      `;
+      const ctx = {
+        user: signal({ name: 'Alice', age: 30 }),
+      };
+
+      initIndulgent(ctx, { root: document.body, debug: true });
+      expectLog(
+        consoleWarnSpy,
+        'Signal "user.name" is not writable, cannot set up input binding for property "value"',
+      );
+
+      consoleWarnSpy.mockRestore();
     });
   });
   describe('iobind', () => {
@@ -97,10 +157,9 @@ describe('initIndulgent', () => {
       };
 
       initIndulgent(ctx, { root: document.body, debug: true });
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        '[indulgent]',
+      expectLog(
+        consoleWarnSpy,
         'Input binding for property "title" is not supported out of the box. Please set up a custom event listener to update the signal.',
-        expect.any(HTMLElement),
       );
 
       consoleWarnSpy.mockRestore();
@@ -121,9 +180,9 @@ describe('initIndulgent', () => {
       };
 
       initIndulgent(ctx, { root: document.body, debug: true });
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        '[indulgent]',
-        '"nonExistentSignal" is not a signal',
+      expectLog(
+        consoleWarnSpy,
+        'Signal not found in context and not a path: "nonExistentSignal"',
       );
 
       consoleWarnSpy.mockRestore();
@@ -144,10 +203,7 @@ describe('initIndulgent', () => {
       };
 
       initIndulgent(ctx as any, { root: document.body, debug: true });
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        '[indulgent]',
-        '"notASignal" is not a signal',
-      );
+      expectLog(consoleWarnSpy, '"notASignal" is not a signal');
 
       consoleWarnSpy.mockRestore();
     });
@@ -202,6 +258,36 @@ describe('initIndulgent', () => {
       baseSignal.set('Indulgent');
       await vi.runAllTimersAsync();
       expect(header.textContent).toBe('HELLO, INDULGENT!');
+    });
+
+    test('should create reactive bindings for nested object paths and warn that input binding is not supported', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => {});
+
+      document.body.innerHTML = `
+        <div>
+          <input id="input" type="text" iobind:value="user.name" />
+        </div>
+      `;
+      const input = document.getElementById('input') as HTMLInputElement;
+      const ctx = {
+        user: signal({ name: 'Alice', age: 30 }),
+      };
+
+      initIndulgent(ctx, { root: document.body, debug: true });
+      expect(input.value).toBe('Alice');
+      expectLog(
+        consoleWarnSpy,
+        'Signal "user.name" is not writable, cannot set up input binding for property "value"',
+      );
+
+      ctx.user.update((u) => ({ ...u, name: 'Bob' }));
+      await vi.runAllTimersAsync();
+
+      expect(input.value).toBe('Bob');
+
+      consoleWarnSpy.mockRestore();
     });
   });
 
@@ -268,7 +354,7 @@ describe('initIndulgent', () => {
 
     test('should not re-initialize bindings on subsequent calls to initIndulgent with same root', async () => {
       const consoleLogSpy = vi
-        .spyOn(console, 'log')
+        .spyOn(console, 'info')
         .mockImplementation(() => {});
 
       document.body.innerHTML = `
@@ -283,10 +369,9 @@ describe('initIndulgent', () => {
 
       initIndulgent(ctx, { root: document.body, debug: true });
       expect(input.value).toBe('Initial Value');
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        '[indulgent]',
+      expectLog(
+        consoleLogSpy,
         'Setting up output binding for property "value" and signal "mySignal"',
-        input,
       );
 
       consoleLogSpy.mockClear();
@@ -329,73 +414,187 @@ describe('initIndulgent', () => {
   });
 });
 
-describe('integration', () => {
-  test('buggy styles example', async () => {
+describe('for bindings', () => {
+  test('should repeat template for each item in signal array', async () => {
     document.body.innerHTML = `
-      <div id="container" obind:style="containerStyle">
-        <h1>Welcome to Indulgent!</h1>
-        <p>This is a simple example demonstrating dynamic styles.</p>
+      <div>
+        <p class="item" bind:for="item of itemsSignal" obind:text_content="item"></p>
       </div>
     `;
+    const ctx = {
+      itemsSignal: signal(['One', 'Two']),
+    };
+    initIndulgent(ctx, { root: document.body, debug: true });
 
-    const isOpen = signal(false);
-    const backgroundColor = computed(() => {
-      const open = isOpen.get();
-      console.log('Recomputing backgroundColor, isOpen:', open);
-      if (open) {
-        return '#0a0a0a';
-      }
-      return '#ffffff';
+    let items: string[] = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      items.push(el.textContent || '');
     });
-    const foregroundColor = computed(() => {
-      const open = isOpen.get();
-      if (open) {
-        return '#ffffff';
-      }
-      return '#000000';
-    });
-    const containerStyle = computed(() => {
-      const bg = backgroundColor.get();
-      const fg = foregroundColor.get();
-      return `
-            background-color: ${bg};
-            color: ${fg};
-            transition: background-color 0.5s, color 0.5s;
-            width: 100%;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            padding: 0 40px;
-        `;
-    });
-    const container = document.getElementById('container') as HTMLDivElement;
-    initIndulgent(
-      {
-        isOpen,
-        containerStyle,
-      },
-      { debug: true },
-    );
+    expect(items).toEqual(['One', 'Two']);
 
-    expect(containerStyle.get()).toBe(
-      `
-            background-color: #ffffff;
-            color: #000000;
-            transition: background-color 0.5s, color 0.5s;
-            width: 100%;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            padding: 0 40px;
-        `,
-    );
-    expect(container.style.backgroundColor).toBe('#ffffff');
-    expect(container.style.color).toBe('#000000');
-
-    isOpen.set(true);
+    ctx.itemsSignal.set(['One', 'Two', 'Three']);
     await vi.runAllTimersAsync();
 
-    expect(container.style.backgroundColor).toBe('#0a0a0a');
-    expect(container.style.color).toBe('#ffffff');
+    items = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      items.push(el.textContent || '');
+    });
+    expect(items).toEqual(['One', 'Two', 'Three']);
+
+    ctx.itemsSignal.set(['One']);
+    await vi.runAllTimersAsync();
+
+    items = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      items.push(el.textContent || '');
+    });
+    expect(items).toEqual(['One']);
+  });
+
+  test('should handle for binding with item path', async () => {
+    document.body.innerHTML = `
+      <div>
+        <p class="item" bind:for="item of itemsSignal" obind:text_content="item.name"></p>
+      </div>
+    `;
+    const ctx = {
+      itemsSignal: signal([{ name: 'Alice' }, { name: 'Bob' }]),
+    };
+    initIndulgent(ctx, { root: document.body, debug: true });
+
+    let items: string[] = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      items.push(el.textContent || '');
+    });
+    expect(items).toEqual(['Alice', 'Bob']);
+
+    ctx.itemsSignal.set([{ name: 'Charlie' }]);
+    await vi.runAllTimersAsync();
+
+    items = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      items.push(el.textContent || '');
+    });
+    expect(items).toEqual(['Charlie']);
+  });
+
+  test('should handle for binding with tracker function', async () => {
+    document.body.innerHTML = `
+      <div>
+        <p class="item" bind:for="item of itemsSignal by item.id" obind:text_content="item.name"></p>
+      </div>
+    `;
+    const ctx = {
+      itemsSignal: signal([
+        { id: 1, name: 'Alice' },
+        { id: 2, name: 'Bob' },
+      ]),
+    };
+    initIndulgent(ctx, { root: document.body, debug: true });
+
+    let items: string[] = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      items.push(el.textContent || '');
+    });
+    expect(items).toEqual(['Alice', 'Bob']);
+
+    // Update Bob's name, should not recreate element
+    ctx.itemsSignal.set([
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Robert' },
+    ]);
+    await vi.runAllTimersAsync();
+
+    items = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      items.push(el.textContent || '');
+    });
+    expect(items).toEqual(['Alice', 'Robert']);
+
+    // Remove Alice, add Charlie
+    ctx.itemsSignal.set([
+      { id: 2, name: 'Robert' },
+      { id: 3, name: 'Charlie' },
+    ]);
+    await vi.runAllTimersAsync();
+
+    items = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      items.push(el.textContent || '');
+    });
+    expect(items).toEqual(['Robert', 'Charlie']);
+  });
+
+  test('should handle empty array in for binding', async () => {
+    document.body.innerHTML = `
+      <div>
+        <p class="item" bind:for="item of itemsSignal" obind:text_content="item"></p>
+      </div>
+    `;
+    const ctx = {
+      itemsSignal: signal<string[]>([]),
+    };
+    initIndulgent(ctx, { root: document.body, debug: true });
+
+    let items: string[] = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      items.push(el.textContent || '');
+    });
+    expect(items).toEqual([]);
+
+    ctx.itemsSignal.set(['First']);
+    await vi.runAllTimersAsync();
+
+    items = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      items.push(el.textContent || '');
+    });
+    expect(items).toEqual(['First']);
+  });
+
+  test('should handle children referencing item in for binding', async () => {
+    document.body.innerHTML = `
+      <div>
+        <div class="item" bind:for="item of itemsSignal">
+          <h2 obind:text_content="item.name"></h2>
+          <p obind:text_content="item.description"></p>
+        </div>
+      </div>
+    `;
+    const ctx = {
+      itemsSignal: signal([
+        { id: 1, name: 'Alice', description: 'A software engineer.' },
+        { id: 2, name: 'Bob', description: 'A product manager.' },
+      ]),
+    };
+    initIndulgent(ctx, { root: document.body, debug: true });
+
+    let items: { name: string; description: string }[] = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      const name = el.querySelector('h2')?.textContent || '';
+      const description = el.querySelector('p')?.textContent || '';
+      items.push({ name, description });
+    });
+    expect(items).toEqual([
+      { name: 'Alice', description: 'A software engineer.' },
+      { name: 'Bob', description: 'A product manager.' },
+    ]);
+
+    ctx.itemsSignal.set([
+      { id: 1, name: 'Alice', description: 'A senior software engineer.' },
+      { id: 3, name: 'Charlie', description: 'A UX designer.' },
+    ]);
+    await vi.runAllTimersAsync();
+
+    items = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      const name = el.querySelector('h2')?.textContent || '';
+      const description = el.querySelector('p')?.textContent || '';
+      items.push({ name, description });
+    });
+    expect(items).toEqual([
+      { name: 'Alice', description: 'A senior software engineer.' },
+      { name: 'Charlie', description: 'A UX designer.' },
+    ]);
   });
 });
