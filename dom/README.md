@@ -13,6 +13,7 @@ Bind indulgent signals to DOM elements using custom attributes.
 - `obind:` - one-way binding from signal to DOM element
 - `ibind:` - one-way binding from DOM element to signal
 - `iobind:` - two-way binding between signal and DOM element
+- `bind:for` - repeat an element for each item in a signal array (WIP)
 
 ```ts
 import { signal } from 'indulgent/signal';
@@ -20,8 +21,9 @@ import { initIndulgent } from 'indulgent-dom';
 
 const name = signal('World');
 const address = signal('Earth');
+const items = signal(['Item 1', 'Item 2', 'Item 3']);
 
-initIndulgent({ address, name });
+initIndulgent({ address, name, items });
 // initIndulgent can be called multiple times
 // in case you want to do it per-fragment or
 // something along those lines
@@ -32,6 +34,9 @@ initIndulgent({ address, name });
 <input ibind:value="name" />
 <input iobind:value="address" />
 <button onclick="address.set('Mars')">Set address to Mars</button>
+<ul>
+  <li bind:for="item of items" obind:text_content="item"></li>
+</ul>
 ```
 
 As you can see, the library aims for supporting differently cased property names through snake_case.
