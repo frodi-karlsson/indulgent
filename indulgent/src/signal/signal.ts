@@ -205,6 +205,7 @@ export class ComputedSignalImplementation<T> implements ReadSignal<T> {
   private signal: SignalImplementation<T>;
   private dependencies = new Set<ReadSignal<any>>();
   private logger?: Logger;
+  private scheduled = false;
 
   constructor(computeFn: () => T, options?: SignalOptions<T>) {
     this.computeFn = computeFn;
@@ -222,7 +223,15 @@ export class ComputedSignalImplementation<T> implements ReadSignal<T> {
 
   private dependencyFn = () => {
     this.logger?.('info', `Computed signal dependency changed`);
-    this.track();
+    if (this.scheduled) {
+      return;
+    }
+    this.scheduled = true;
+    queueMicrotask(() => {
+      this.scheduled = false;
+      this.logger?.('info', `Recomputing computed signal value`);
+      this.track();
+    });
   };
 
   private track(): void {
@@ -295,11 +304,26 @@ export function computed<T>(
 export class Effect {
   private effectFn: () => void;
   private dependencies = new Set<ReadSignal<any>>();
+  private scheduled = false;
+  private logger?: Logger;
 
-  constructor(effectFn: () => void) {
+  constructor(effectFn: () => void, options?: { logger?: Logger }) {
     this.effectFn = effectFn;
+    this.logger = options?.logger;
     this.track();
   }
+
+  dependencyFn = () => {
+    this.logger?.('info', `Effect dependency changed, re-running effect`);
+    if (this.scheduled) {
+      return;
+    }
+    this.scheduled = true;
+    queueMicrotask(() => {
+      this.scheduled = false;
+      this.track();
+    });
+  };
 
   private track() {
     const signals = track(() => {
@@ -309,7 +333,7 @@ export class Effect {
       if (signals.includes(dep)) {
         continue;
       } else {
-        dep.unregisterDependent(this.track.bind(this));
+        dep.unregisterDependent(this.dependencyFn);
         this.dependencies.delete(dep);
       }
     }
@@ -317,15 +341,18 @@ export class Effect {
       if (this.dependencies.has(signal)) {
         continue;
       } else {
-        signal.registerDependent(this.track.bind(this));
+        signal.registerDependent(this.dependencyFn);
         this.dependencies.add(signal);
       }
     }
   }
 }
 
-export function effect(effectFn: () => void | (() => void)): void {
-  const _ = new Effect(effectFn);
+export function effect(
+  effectFn: () => void | (() => void),
+  options?: { logger?: Logger },
+): Effect {
+  return new Effect(effectFn, options);
 }
 
 export class SignalError extends Error {

@@ -132,6 +132,40 @@ describe('computed', () => {
     await vi.runAllTimersAsync();
     expect(comp3.get()).toBe(35); // (5 + 10) * 2 + 5
   });
+
+  test('should not recompute if dependencies do not change', async () => {
+    const sig1 = signal(2);
+    const sig2 = signal(3);
+    const mockCompute = vi.fn(() => sig1.get() + sig2.get());
+    const comp = computed(mockCompute);
+    expect(comp.get()).toBe(5);
+    expect(mockCompute).toHaveBeenCalledTimes(1);
+
+    sig1.set(2);
+    await vi.runAllTimersAsync();
+    expect(comp.get()).toBe(5);
+    expect(mockCompute).toHaveBeenCalledTimes(1);
+
+    sig2.set(4);
+    await vi.runAllTimersAsync();
+    expect(comp.get()).toBe(6);
+    expect(mockCompute).toHaveBeenCalledTimes(2);
+  });
+
+  test('should only recompute once with multiple dependencies changing', async () => {
+    const sig1 = signal(2);
+    const sig2 = signal(3);
+    const mockCompute = vi.fn(() => sig1.get() + sig2.get());
+    const comp = computed(mockCompute);
+    expect(comp.get()).toBe(5);
+    expect(mockCompute).toHaveBeenCalledTimes(1);
+
+    sig1.set(5);
+    sig2.set(10);
+    await vi.runAllTimersAsync();
+    expect(comp.get()).toBe(15);
+    expect(mockCompute).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('effect', () => {
@@ -176,6 +210,41 @@ describe('effect', () => {
     await vi.runAllTimersAsync();
     expect(mockEffect).toHaveBeenCalledTimes(2);
     sig.set(3);
+    await vi.runAllTimersAsync();
+    expect(mockEffect).toHaveBeenCalledTimes(3);
+  });
+
+  test('should only run once per update with consecutive changes', async () => {
+    const sig = signal(1);
+    const mockEffect = vi.fn(() => {
+      sig.get();
+    });
+    effect(mockEffect);
+    expect(mockEffect).toHaveBeenCalledTimes(1);
+    sig.set(2);
+    sig.set(3);
+    sig.set(4);
+    await vi.runAllTimersAsync();
+    expect(mockEffect).toHaveBeenCalledTimes(2);
+    sig.set(5);
+    await vi.runAllTimersAsync();
+    expect(mockEffect).toHaveBeenCalledTimes(3);
+  });
+
+  test('should only run once with multiple dependencies changing', async () => {
+    const sig1 = signal(1);
+    const sig2 = signal(10);
+    const mockEffect = vi.fn(() => {
+      sig1.get();
+      sig2.get();
+    });
+    effect(mockEffect);
+    expect(mockEffect).toHaveBeenCalledTimes(1);
+    sig1.set(2);
+    sig2.set(20);
+    await vi.runAllTimersAsync();
+    expect(mockEffect).toHaveBeenCalledTimes(2);
+    sig1.set(3);
     await vi.runAllTimersAsync();
     expect(mockEffect).toHaveBeenCalledTimes(3);
   });
