@@ -21,7 +21,10 @@ const inputBindings: Record<string, [string, (el: HTMLElement) => any]> = {
   open: ['toggle', (el) => (el as HTMLDetailsElement).open],
 };
 
-function getComputedLogger(baseLogger: Logger | undefined): Logger | undefined {
+function getComputedLogger(
+  baseLogger: Logger | undefined,
+  signalName: string,
+): Logger | undefined {
   if (!baseLogger) {
     return undefined;
   }
@@ -30,7 +33,9 @@ function getComputedLogger(baseLogger: Logger | undefined): Logger | undefined {
     baseLogger?.(severity, message, ...args);
   }
 
-  return Object.assign(logger, { context: `${baseLogger.context}->COMPUTED` });
+  return Object.assign(logger, {
+    context: `${baseLogger.context}->COMPUTED for ${signalName}`,
+  });
 }
 
 /**
@@ -70,7 +75,7 @@ function manageArraySignals(
             const arr = signal.get();
             return arr[index];
           },
-          { logger: getComputedLogger(logger) },
+          { logger: getComputedLogger(logger, key) },
         );
         return;
       }
@@ -103,7 +108,7 @@ function manageArraySignals(
             const arr = signal.get();
             return arr[index];
           },
-          { logger: getComputedLogger(logger) },
+          { logger: getComputedLogger(logger, key) },
         );
       }
     });
@@ -181,14 +186,60 @@ function validateForAttr(
   return { itemName, signalName, trackerPath, signal };
 }
 
+/**
+ * Handles elements with `bind:for` attributes, setting up the necessary signals and bindings.
+ * Clones the template element for each item in the array signal and sets up bindings within the cloned elements.
+ * 
+ * Sets up an effect that runs the update function whenever the array signal changes, ensuring that the DOM stays in sync with the signal.
+ * 
+ * On subsequent updates, it reuses existing elements where possible, removes any excess elements and adds new ones as needed.
+ * 
+ * Must pass
+ * 
+ * test('should repeat template for each item in signal array', async () => {
+    document.body.innerHTML = `
+      <div>
+        <p class="item" bind:for="item of itemsSignal" obind:text_content="item"></p>
+      </div>
+    `;
+    const ctx = {
+      itemsSignal: signal(['One', 'Two']),
+    };
+    initIndulgent(ctx, { root: document.body, debug: true });
+
+    let items: string[] = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      items.push(el.textContent || '');
+    });
+    expect(items).toEqual(['One', 'Two']);
+
+    ctx.itemsSignal.set(['One', 'Two', 'Three']);
+    await vi.runAllTimersAsync();
+
+    items = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      items.push(el.textContent || '');
+    });
+    expect(items).toEqual(['One', 'Two', 'Three']);
+
+    ctx.itemsSignal.set(['One']);
+    await vi.runAllTimersAsync();
+
+    items = [];
+    document.querySelectorAll('.item').forEach((el) => {
+      items.push(el.textContent || '');
+    });
+    expect(items).toEqual(['One']);
+  });
+ */
 function handleForBindings(
   forBoundElements: HTMLElement[],
   ctx: Record<string, ReadSignal<any> | WriteSignal<any>>,
-  root: HTMLElement,
+  root: Element,
   logger: Logger | undefined,
 ) {
-  forBoundElements.forEach((el) => {
-    const forAttr = el.getAttribute('bind:for');
+  forBoundElements.forEach((template) => {
+    const forAttr = template.getAttribute('bind:for');
     if (!forAttr) {
       return;
     }
@@ -197,78 +248,95 @@ function handleForBindings(
     if (!validated) {
       return;
     }
+
     const { itemName, signalName, trackerPath, signal } = validated;
 
-    const parent = el.parentElement;
+    // Set up array signals for each item
+    manageArraySignals(ctx, signalName, signal, trackerPath, logger);
+
+    // Store the template and prepare for cloning
+    const parent = template.parentElement;
     if (!parent) {
-      logger?.('error', `Element with bind:for must have a parent element`, el);
+      logger?.(
+        'warn',
+        `Template element has no parent, cannot set up bind:for`,
+      );
       return;
     }
 
-    const placeholder = root.ownerDocument.createComment(`for ${forAttr}`);
-    el.replaceWith(placeholder);
+    // Remove the template from DOM initially
+    const templateClone = template.cloneNode(true) as HTMLElement;
+    templateClone.removeAttribute('bind:for');
+    template.remove();
 
+    // Track cloned elements
+    const clonedElements: HTMLElement[] = [];
+    const marker = document.createComment(`bind:for ${forAttr}`);
+    parent.appendChild(marker);
+
+    // Update function to sync DOM with array
     // oxlint-disable-next-line func-style
     const update = () => {
-      const signal = validateSignal(ctx, signalName, logger);
-      if (!isArrayReadSignal(signal)) {
-        logger?.('warn', `Signal ${signalName} is not an array`);
+      const array = signal.get();
+      if (!Array.isArray(array)) {
+        logger?.('warn', `Signal ${signalName} is not an array`, array);
         return;
       }
-      const array = signal.get();
-      manageArraySignals(ctx, signalName, signal, trackerPath, logger);
 
-      const existingElements: HTMLElement[] = [];
-      let { nextSibling } = placeholder;
-      while (
-        nextSibling &&
-        nextSibling instanceof HTMLElement &&
-        nextSibling.hasAttribute('data-indulgent-for') &&
-        nextSibling.getAttribute('data-indulgent-for') === forAttr
-      ) {
-        existingElements.push(nextSibling);
-        ({ nextSibling } = nextSibling);
+      // Remove excess elements
+      while (clonedElements.length > array.length) {
+        const removed = clonedElements.pop();
+        removed?.remove();
       }
 
-      const expectedElements: HTMLElement[] = [];
-      array.forEach((_, index) => {
-        const key = `__indulgent_for_${signalName}_${index}`;
-        const newElement = el.cloneNode(true) as HTMLElement;
-        newElement.removeAttribute('bind:for');
-        newElement.setAttribute('data-indulgent-for', forAttr);
-        expectedElements.push(newElement);
-        if (index < existingElements.length) {
-          existingElements[index].replaceWith(newElement);
+      // Update or create elements for each array item
+      array.forEach((item, index) => {
+        const itemSignalKey = `__indulgent_for_${signalName}_${index}`;
+
+        if (index < clonedElements.length) {
+          // Reuse existing element - need to clear and rebind
+          const existingEl = clonedElements[index];
+
+          // Remove the data-indulgent-id to allow rebinding
+          existingEl.removeAttribute('data-indulgent-id');
+          const children = existingEl.querySelectorAll('[data-indulgent-id]');
+          children.forEach((child) =>
+            child.removeAttribute('data-indulgent-id'),
+          );
+
+          // Replace signal name references
+          replaceSignalNameInBindings(existingEl, itemName, itemSignalKey);
+
+          // Re-establish bindings
+          const elementsToProcess = [
+            existingEl,
+            // oxlint-disable-next-line prefer-spread
+            ...Array.from(existingEl.querySelectorAll('*')),
+          ];
+          createBindings(elementsToProcess, ctx, logger);
         } else {
-          nextSibling?.before(newElement);
+          // Create new element
+          const clone = templateClone.cloneNode(true) as HTMLElement;
+
+          // Replace signal name references
+          replaceSignalNameInBindings(clone, itemName, itemSignalKey);
+
+          // Insert before marker
+          marker.before(clone);
+          clonedElements.push(clone);
+
+          // Set up bindings for the new element and its children
+          const elementsToProcess = [
+            clone,
+            // oxlint-disable-next-line prefer-spread
+            ...Array.from(clone.querySelectorAll('*')),
+          ];
+          createBindings(elementsToProcess, ctx, logger);
         }
-
-        newElement.setAttribute('data-indulgent-for-key', key);
-      });
-
-      // remove any excess existing elements
-      existingElements.forEach((el) => {
-        if (!expectedElements.includes(el)) {
-          el.remove();
-        }
-      });
-
-      // reorder elements to match expected order
-      expectedElements.forEach((el, idx) => {
-        if (el !== parent.children[idx]) {
-          parent.children[idx]?.before(el);
-        }
-      });
-
-      // set up bindings on the new elements, using a mock context that includes the item signals
-      expectedElements.forEach((element, index) => {
-        const key = `__indulgent_for_${signalName}_${index}`;
-
-        replaceSignalNameInBindings(element, itemName, key);
-        // oxlint-disable-next-line prefer-spread
-        createBindings([element, ...Array.from(element.children)], ctx, logger);
       });
     };
+
+    // Register dependent and run initial update
     signal.registerDependent(update);
     update();
   });
@@ -435,7 +503,7 @@ function getSignal(
       }
       return current;
     },
-    { logger: getComputedLogger(logger) },
+    { logger: getComputedLogger(logger, signalName) },
   );
 }
 
@@ -520,7 +588,7 @@ function createBindings(
 }
 
 const globalCtx: Record<string, ReadSignal<any>> = {};
-const roots = new Set<HTMLElement>();
+const roots = new Set<Element>();
 
 /**
  * Initializes Indulgent DOM bindings.
@@ -566,7 +634,7 @@ export function initIndulgent(
    * A context object mapping signal names to their corresponding Signal instances.
    */
   ctx: Record<string, ReadSignal<any>>,
-  opts?: { debug?: boolean; root?: HTMLElement },
+  opts?: { debug?: boolean; root?: Element },
 ): void {
   const { root = document.body, debug = false } = opts || {};
   let logger: Logger | undefined = undefined;

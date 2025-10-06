@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Indulgent Example</title>
+    <script src="./node_modules/indulgent-dom/dist/index-cdn.js"></script>
+  </head>
+  <body style="margin: 0">
+    <script>
+      const employees = indulgent.signal([
+        { id: 1, name: 'Alice', description: 'A software engineer.' },
+        { id: 2, name: 'Bob', description: 'A product manager.' },
+        { id: 3, name: 'Charlie', description: 'A UX designer.' },
+      ]);
+
+      setTimeout(() => {
+        employees.update((list) => {
+          const bob = list.find((u) => u.name === 'Bob');
+          bob.description = 'An awesome product manager.';
+          return list;
+        });
+      }, 3000);
+
+      indulgent.init({ employees });
+    </script>
+    <div>
+      <ul>
+        <li bind:for="employee of employees by employee.id">
+          <h2 obind:inner_text="employee.name">Loading...</h2>
+          <p obind:inner_text="employee.description">Loading...</p>
+        </li>
+      </ul>
+    </div>
+  </body>
+</html>
