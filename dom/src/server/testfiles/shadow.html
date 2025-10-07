@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shadow DOM Test</title>
+  </head>
+  <body>
+    <script>
+      class CustomElement extends HTMLElement {
+        constructor() {
+          super();
+          const shadow = this.attachShadow({
+            mode: 'open',
+            serializable: true,
+          });
+        }
+
+        connectedCallback() {
+          const shadow = this.shadowRoot;
+          shadow.innerHTML = `
+                    <style>
+                        p { color: blue; }
+                    </style>
+                    <p>This is in the shadow DOM.</p>
+                `;
+        }
+      }
+      customElements.define('custom-element', CustomElement);
+    </script>
+    <custom-element></custom-element>
+  </body>
+</html>

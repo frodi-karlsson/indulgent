@@ -1,8 +1,61 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`ssg > should match snapshots > partial.html 1`] = `
+"<script type="text/javascript" id="indulgent-ssg-loader" async="">/* mock bundle */</script><div class="partial">
+  <h1>This is a partial HTML file</h1>
+  <p>It does not have html, head or body tags.</p>
+  <p>It is used for testing server-side rendering of fragments.</p>
+</div>
+"
+`;
+
+exports[`ssg > should match snapshots > shadow.html 1`] = `
+"<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow DOM Test</title>
+  <script type="text/javascript" id="indulgent-ssg-loader" async="">/* mock bundle */</script></head>
+  <body>
+    <script>
+      class CustomElement extends HTMLElement {
+        constructor() {
+          super();
+          const shadow = this.attachShadow({
+            mode: 'open',
+            serializable: true,
+          });
+        }
+
+        connectedCallback() {
+          const shadow = this.shadowRoot;
+          shadow.innerHTML = \`
+                    <style>
+                        p { color: blue; }
+                    </style>
+                    <p>This is in the shadow DOM.</p>
+                \`;
+        }
+      }
+      customElements.define('custom-element', CustomElement);
+    </script>
+    <custom-element><template shadowrootmode="open" shadowrootserializable="">
+                    <style>
+                        p { color: blue; }
+                    </style>
+                    <p>This is in the shadow DOM.</p>
+                </template></custom-element>
+  
+
+</body>
+</html>"
+`;
+
 exports[`ssg > should match snapshots > simple.html 1`] = `
 "<!doctype html>
-<html lang="en"><head>
+<html lang="en">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simple Test</title>
@@ -11,12 +64,14 @@ exports[`ssg > should match snapshots > simple.html 1`] = `
     <h1>Hello World</h1>
   
 
-</body></html>"
+</body>
+</html>"
 `;
 
 exports[`ssg > should match snapshots > withBindings.html 1`] = `
 "<!doctype html>
-<html lang="en"><head>
+<html lang="en">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Indulgent Example</title>
@@ -50,5 +105,6 @@ exports[`ssg > should match snapshots > withBindings.html 1`] = `
     </div>
   
 
-</body></html>"
+</body>
+</html>"
 `;
