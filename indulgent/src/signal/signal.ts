@@ -93,7 +93,7 @@ class SignalImplementation<T> implements Signal<T> {
   get(): T {
     this.logger?.('info', `Signal get: ${this.value}`);
     reaction?.(this);
-    return this.value;
+    return structuredClone(this.value);
   }
 
   set(newValue: T): void {
@@ -175,7 +175,20 @@ export function storeSignal<T>(
     parsedValue = initialValue as T;
     storage.setItem(key, JSON.stringify(parsedValue));
   }
-  const signalInstance = signal<T>(parsedValue, options);
+  const signalInstance = signal<T>(parsedValue, {
+    equalsFn(a, b) {
+      const storeValue = storage.getItem(key);
+      if (storeValue === null) {
+        return a === b;
+      }
+      try {
+        const storedParsed = JSON.parse(storeValue) as T;
+        return JSON.stringify(storedParsed) === JSON.stringify(b) && a === b;
+      } catch {
+        return a === b;
+      }
+    },
+  });
   signalInstance.registerDependent((newValue) => {
     storage.setItem(key, JSON.stringify(newValue));
   });

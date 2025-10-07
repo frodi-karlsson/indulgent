@@ -293,4 +293,15 @@ describe('storeSignal', () => {
     localStorage.setItem('testKey5', 'invalid JSON');
     expect(() => storeSignal('testKey5')).toThrow(SignalError);
   });
+
+  test('should update dependents if value is not equal to stored value', async () => {
+    const sig = storeSignal('testKey6', { a: 1 });
+    const mockListener = vi.fn();
+    sig.registerDependent(mockListener);
+    const value = sig.get();
+    value.a = 2;
+    sig.set(value);
+    await vi.runAllTimersAsync();
+    expect(mockListener).toHaveBeenCalledWith({ a: 2 });
+  });
 });
