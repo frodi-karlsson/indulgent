@@ -56,13 +56,60 @@ function newPageResource(browser: Browser): BrowserPage & AsyncDisposable {
 }
 
 /**
- * Happy DOM may strip stuff like <!DOCTYPE ...> from the start of the document.
+ * Happy DOM may strip stuff like <!DOCTYPE ...> from the start of the document,
+ * or add stuff of its own like <head> tags.
  * This function attempts to preserve those losses by copying from the original
  */
 function compatLossiness(original: string, updated: string): string {
+  const originalHeadStart = original.match(/<[\s]*?head[^>]*>/g);
+  const originalHeadEnd = original.match(/<\/[\s]*?head[^>]*>/g);
+  const originalBodyStart = original.match(/<[\s]*?body[^>]*>/g);
+  const originalBodyEnd = original.match(/<\/[\s]*?body[^>]*>/g);
+  if (!originalHeadStart) {
+    const updatedHeadStart = updated.match(/<[\s]*?head[^>]*>/g);
+    if (updatedHeadStart) {
+      const [startTag] = updatedHeadStart;
+      updated = updated.replace(startTag, '');
+    }
+  }
+  if (!originalHeadEnd) {
+    const updatedHeadEnd = updated.match(/<\/[\s]*?head[^>]*>/g);
+    if (updatedHeadEnd) {
+      const [endTag] = updatedHeadEnd;
+      updated = updated.replace(endTag, '');
+    }
+  }
+  if (!originalBodyStart) {
+    const updatedBodyStart = updated.match(/<[\s]*?body[^>]*>/g);
+    if (updatedBodyStart) {
+      const [startTag] = updatedBodyStart;
+      updated = updated.replace(startTag, '');
+    }
+  }
+  if (!originalBodyEnd) {
+    const updatedBodyEnd = updated.match(/<\/[\s]*?body[^>]*>/g);
+    if (updatedBodyEnd) {
+      const [endTag] = updatedBodyEnd;
+      updated = updated.replace(endTag, '');
+    }
+  }
+  const htmlStartMatch = original.match(/<[\s]*?html[^>]*>/g);
+  const htmlEndMatch = original.match(/<\/[\s]*?html[^>]*>/g);
+  if (htmlStartMatch) {
+    const [startTag] = htmlStartMatch;
+    if (startTag && !updated.includes(startTag)) {
+      updated = `${startTag}\n${updated}`;
+    }
+  }
+  if (htmlEndMatch) {
+    const [endTag] = htmlEndMatch;
+    if (endTag && !updated.includes(endTag)) {
+      updated = `${updated}\n${endTag}`;
+    }
+  }
   const doctypeMatch = original.match(/<!(DOCTYPE|doctype) [^>]+>/i);
   if (doctypeMatch) {
-    return `${doctypeMatch[0]}\n${updated}`;
+    updated = `${doctypeMatch[0]}\n${updated}`;
   }
   return updated;
 }
@@ -153,7 +200,10 @@ export async function ssg(directory: string): Promise<Record<string, string>> {
     const allBound = document.querySelectorAll('[data-indulgent-id]');
     allBound.forEach((el) => el.removeAttribute('data-indulgent-id'));
 
-    results[name] = compatLossiness(contents, page.content);
+    const pageHtml = page.mainFrame.document.documentElement.getHTML({
+      serializableShadowRoots: true,
+    });
+    results[name] = compatLossiness(contents, pageHtml);
   }
 
   return results;
